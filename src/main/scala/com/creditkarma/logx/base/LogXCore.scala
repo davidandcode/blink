@@ -27,82 +27,74 @@ class LogXCore[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta, C], 
   private val DefaultPollingInterval = 1000L
 
   var lastFlushTime: Long = 0
+
+  private def loadCheckpointAndThen(): Unit = {
+    Try(checkpointService.executeLoad()) match {
+      case Success(lastCheckpoint) =>
+        statusUpdate(new StatusOK(s"got last checkpoint ${lastCheckpoint}"))
+        readAndThen(lastCheckpoint)
+      case Failure(f) => statusUpdate(new StatusError(f, "checkpoint load failure"))
+    }
+  }
+
+  private def readAndThen(lastCheckpoint: C): Unit = {
+    Try(reader.execute(lastFlushTime, lastCheckpoint)) match {
+      case Success((inData, inDelta, flush)) =>
+        if (flush) {
+          lastFlushTime = System.currentTimeMillis()
+          statusUpdate(new StatusOK("ready to flush"))
+          transformAndThen(lastCheckpoint, inDelta, inData)
+        }
+        else{
+          statusUpdate(new StatusOK("not enough to flush"))
+        }
+      case Failure(f) => statusUpdate(new StatusError(f, "read failure"))
+    }
+  }
+
+  private def transformAndThen(lastCheckpoint: C, inDelta: Delta, inData: I): Unit = {
+    Try(transformer.execute(inData)) match {
+      case Success(outData) =>
+        writeAndThen(lastCheckpoint, inDelta, outData)
+      case Failure(f) => statusUpdate(new StatusError(f, "transform failure"))
+    }
+  }
+
+  private def writeAndThen(lastCheckpoint: C, inDelta: Delta, outData: O): Unit = {
+    Try(writer.execute(outData)) match {
+      case Success(outDelta) =>
+        statusUpdate(new StatusOK("ready to checkpoint"))
+        commitCheckpoint(
+          lastCheckpoint
+            .mergeDelta(outDelta.getOrElse(inDelta)))
+      case Failure(f)=>
+        statusUpdate(new StatusError(f, "write failure"))
+    }
+  }
+
+  private def commitCheckpoint(cp: C): Unit = {
+    Try(checkpointService.executeCommit(cp)) match {
+      case Success(_) =>
+        statusUpdate(new StatusOK(s"checkpoint success ${cp}"))
+      case Failure(f) =>
+        statusUpdate(new StatusError(f, "checkpoint commit failure"))
+    }
+  }
+
   def runOneCycle(): Unit = {
     cycleStarted()
-    /**
-      * None of the module implementations should swallow exception
-      */
-    // 1. Load checkpoint
-    Try(checkpointService.executeLoad()) match {
-      // 1a. Load checkpoint success
-      case Success(lastCheckpoint) =>
-        statusUpdate(checkpointService, new StatusOK(s"Got last checkpoint ${lastCheckpoint}"))
-        // 2. Read
-        Try(reader.execute(lastFlushTime, lastCheckpoint)) match {
-          // 2a. Read success
-          case Success((inData, inDelta, flush)) =>
-            // 2a-1. Flush
-            if (flush) {
-              lastFlushTime = System.currentTimeMillis()
-              statusUpdate(reader, new StatusOK("ready to flush"))
-              // 3 transform
-              Try(transformer.execute(inData)) match {
-                // 3a. Transform success
-                case Success(outData) =>
-                  // 4. Write
-                  Try(writer.execute(outData)) match {
-                    // 4a. Write success
-                    case Success(outDelta) =>
-                      statusUpdate(writer, new StatusOK("ready to checkpoint"))
-                      // 5. Checkpoint
-                      Try(
-                        checkpointService.executeCommit(
-                        lastCheckpoint
-                          .mergeDelta(outDelta.getOrElse(inDelta)))
-                      ) match {
-                        // 5a. Checkpoint success
-                        case Success(_) =>
-                          statusUpdate(checkpointService, new StatusOK("checkpoint success"))
-                        // 5b. Checkpoint failure
-                        case Failure(f) =>
-                          statusUpdate(checkpointService, new StatusError(f))
-                      }
-                    // 4b. Write failure
-                    case Failure(f)=>
-                      statusUpdate(writer, new StatusError(f))
-                  }
-                // 3b. Transform failure
-                case Failure(f) =>
-                  statusUpdate(transformer, new StatusError(f))
-              }
-            }
-            // 2a-b. Not flush
-            else {
-              // not enough to flush downstream, just do nothing and wait for next cycle
-              statusUpdate(reader, new StatusOK("not enough to flush"))
-            }
-          //2b. Read Failure
-          case Failure(f) =>
-            statusUpdate(reader, new StatusError(f))
-        }
-      //1b. load checkpoint failure
-      case Failure(f) =>
-        statusUpdate(checkpointService, new StatusError(f))
-    }
+    loadCheckpointAndThen()
     cycleCompleted()
   }
 
   def start(pollingInterVal: Long = DefaultPollingInterval): Unit = {
-
     Try(reader.start())
     match {
       case Success(_) =>
         Try(writer.start())
         match {
           case Success(_) =>
-
             scala.sys.addShutdownHook(close)
-
             while (true) {
               runOneCycle()
               Thread.sleep(pollingInterVal)
@@ -113,7 +105,6 @@ class LogXCore[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta, C], 
     }
 
   }
-
 
   def close(): Unit = {
     statusUpdate(new StatusOK("Shutting down"))
