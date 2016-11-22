@@ -10,17 +10,22 @@ trait CheckpointService[C <: Checkpoint[_ , C]] extends Module {
   def lastCheckpoint(): C
 
   final def executeCommit(cp: C): Unit = {
+    phaseStarted(Phase.CheckpointCommit)
     Try(commitCheckpoint(cp))
     match {
       case Success(_) =>
+        phaseCompleted(Phase.CheckpointCommit)
       case Failure(f) => throw f
     }
   }
 
   final def executeLoad(): C = {
+    phaseStarted(Phase.CheckpointLoad)
     Try(lastCheckpoint())
     match {
-      case Success(cp) => cp
+      case Success(cp) =>
+        phaseCompleted(Phase.CheckpointLoad)
+        cp
       case Failure(f) => throw f
     }
   }

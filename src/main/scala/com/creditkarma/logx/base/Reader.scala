@@ -35,6 +35,7 @@ trait Reader[B <: BufferedData, C <: Checkpoint[D, C], D, Meta] extends Module {
   def getDelta(meta: Meta): D
 
   final def execute(lastFlushTime: Long, checkpoint: C): (B, D, Boolean) = {
+    phaseStarted(Phase.Read)
     Try(fetchData(lastFlushTime, checkpoint))
     match {
       case Success((data, meta)) =>
@@ -44,6 +45,7 @@ trait Reader[B <: BufferedData, C <: Checkpoint[D, C], D, Meta] extends Module {
             MetricArgs.InBytes->inBytes(meta)
           )
         )
+        phaseCompleted(Phase.Read)
         (data, getDelta(meta), flush(lastFlushTime, meta))
       case Failure(f) => throw f
     }

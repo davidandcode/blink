@@ -11,11 +11,13 @@ trait Transformer[I <: BufferedData, O <: BufferedData] extends Module {
   def transform(input: I): O
 
   final def execute(input: I): O = {
+    phaseStarted(Phase.Transform)
     Try(transform(input))
     match {
-      case Success(out) => out
+      case Success(out) =>
+        phaseCompleted(Phase.Transform)
         // TODO instrumentation
-
+        out
       case Failure(f) => throw f
     }
   }

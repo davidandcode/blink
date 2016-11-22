@@ -15,9 +15,8 @@ class StatusOK (msg: String) extends Status {
   override def message: String = msg
 }
 
-class StatusError(val error: Throwable) extends Status {
+class StatusError(val error: Throwable, val message: String = "") extends Status {
   val statusCode = StatusCode.ERROR
-  override def message: String = s"${error.getMessage}\n${error.getStackTraceString}"
 }
 
 object StatusCode extends Enumeration {

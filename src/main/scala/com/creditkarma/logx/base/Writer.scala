@@ -30,6 +30,7 @@ trait Writer[B <: BufferedData, Delta, Meta] extends Module {
   def getDelta(meta: Meta): Option[Delta] = None
 
   final def execute(data: B): Option[Delta] = {
+    phaseStarted(Phase.Write)
     Try(write(data))
     match {
       case Success(meta) =>
@@ -41,6 +42,7 @@ trait Writer[B <: BufferedData, Delta, Meta] extends Module {
             MetricArgs.OutBytes->outBytes(meta)
           )
         )
+        phaseCompleted(Phase.Write)
         getDelta(meta)
       case Failure(f) => throw f
     }

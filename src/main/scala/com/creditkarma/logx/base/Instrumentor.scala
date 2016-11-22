@@ -16,6 +16,10 @@ trait Instrumentor {
 
   def cycleCompleted(): Unit
 
+  def phaseStarted(phase: Phase.Value): Unit
+
+  def phaseCompleted(phase: Phase.Value): Unit
+
   def updateStatus(module: Module, status: Status): Unit
 
   def updateMetric(module: Module, metrics: Map[MetricArgs.Value, Any] = Map.empty): Unit

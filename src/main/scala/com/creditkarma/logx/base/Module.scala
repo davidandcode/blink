@@ -15,7 +15,6 @@ trait Module extends Instrumentable {
   }
 }
 
-
 object ModuleType extends Enumeration {
   val Core, Reader, Writer, Transformer, CheckpointService = Value
 }

@@ -1,5 +1,5 @@
 package com.creditkarma.logx.instrumentation
-import com.creditkarma.logx.base.{Instrumentor, MetricArgs, Module, Status}
+import com.creditkarma.logx.base._
 import com.creditkarma.logx.utils.LazyLog
 import org.apache.log4j.{ConsoleAppender, Level, LogManager, PatternLayout}
 
@@ -18,7 +18,6 @@ object LogInfoInstrumentor extends Instrumentor with LazyLog {
   }
   def setLevel(level: Level): Unit = {
     logger.setLevel(level)
-    this
   }
 
   setLevel(Level.INFO)
@@ -41,6 +40,14 @@ object LogInfoInstrumentor extends Instrumentor with LazyLog {
   }
 
   override def updateMetric(module: Module, args: Map[MetricArgs.Value, Any]): Unit = {
-    info(s"Cycle=$cycleId, Module=${module.getClass.getSimpleName}(type=${module.moduleType}), $args=$args")
+    info(s"Cycle=$cycleId, Module=${module.getClass.getSimpleName}(type=${module.moduleType}), metrics=$args")
+  }
+
+  override def phaseStarted(phase: Phase.Value): Unit = {
+    info(s"Cycle=$cycleId, ${phase} phase started")
+  }
+
+  override def phaseCompleted(phase: Phase.Value): Unit = {
+    info(s"Cycle=$cycleId, ${phase} phase completed")
   }
 }

@@ -36,4 +36,12 @@ trait Instrumentable {
   def cycleCompleted(): Unit = {
     instrumentors.foreach(_.cycleCompleted())
   }
+
+  def phaseStarted(phase: Phase.Value): Unit = {
+    instrumentors.foreach(_.phaseStarted(phase))
+  }
+
+  def phaseCompleted(phase: Phase.Value): Unit = {
+    instrumentors.foreach(_.phaseCompleted(phase))
+  }
 }
