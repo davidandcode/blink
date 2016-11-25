@@ -81,9 +81,14 @@ class KafkaSparkRDDReader[K, V](val kafkaParams: Map[String, Object])
               if(checkpointOffset < earliestOffset) // some offset is missed from the last checkpoint and what is currently available
                 {
                   updateStatus(this, new StatusError(new Exception(s"Missing messages: ${tp}, from $checkpointOffset to $earliestOffset")))
+                  tp -> earliestOffset
                 }
-
-              tp -> checkpointOffset
+              else{
+                tp -> checkpointOffset
+                // TODO
+                // it is possible the kafka data are purged after seeking and before Spark read, there is no guarantee of read consistency between this reader consumer and the spark RDD consumer
+                // It appears Kafka by default has quite long window to reten deleted records, it should cover the very short time between seeking and read
+              }
             case None => // a new topic partition
               tp -> earliestOffset
           }

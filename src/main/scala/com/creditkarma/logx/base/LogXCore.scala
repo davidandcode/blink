@@ -38,12 +38,13 @@ final class LogXCore[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta
   }
 
   private def readAndThen(lastCheckpoint: C): Unit = {
+    val inTime = System.currentTimeMillis()
     Try(reader.execute(lastFlushTime, lastCheckpoint)) match {
       case Success((inData, inDelta, flush)) =>
         if (flush) {
           lastFlushTime = System.currentTimeMillis()
           updateStatus(new StatusOK("ready to flush"))
-          transformAndThen(lastCheckpoint, inDelta, inData)
+          transformAndThen(lastCheckpoint, inTime, inDelta, inData)
         }
         else{
           updateStatus(new StatusOK("not enough to flush"))
@@ -52,21 +53,24 @@ final class LogXCore[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta
     }
   }
 
-  private def transformAndThen(lastCheckpoint: C, inDelta: Delta, inData: I): Unit = {
+  private def transformAndThen(lastCheckpoint: C, inTime: Long, inDelta: Delta, inData: I): Unit = {
     Try(transformer.execute(inData)) match {
       case Success(outData) =>
-        writeAndThen(lastCheckpoint, inDelta, outData)
+        writeAndThen(lastCheckpoint, inTime, inDelta, outData)
       case Failure(f) => updateStatus(new StatusError(f, "transform failure"))
     }
   }
 
-  private def writeAndThen(lastCheckpoint: C, inDelta: Delta, outData: O): Unit = {
-    Try(writer.execute(outData, lastCheckpoint)) match {
+  private def writeAndThen(lastCheckpoint: C, inTime: Long, inDelta: Delta, outData: O): Unit = {
+    Try(writer.execute(outData, lastCheckpoint, inTime)) match {
       case Success(outDelta) =>
         updateStatus(new StatusOK("ready to checkpoint"))
         commitCheckpoint(
           lastCheckpoint
-            .mergeDelta(outDelta.getOrElse(inDelta)))
+            .mergeDelta(
+              outDelta.getOrElse(inDelta), inTime
+            )
+        )
       case Failure(f)=>
         updateStatus(new StatusError(f, "write failure"))
     }

@@ -16,6 +16,7 @@ trait Writer[B <: BufferedData, C <: Checkpoint[D, C], D, Meta] extends Module {
     * @param lastCheckpoint writer may need info saved in last checkpoint to determine which portion of the data to write.
     *                       For example, to guarantee worst case latency and also avoid too many small files,
     *                       writer may flush a kafka topic-partition based on last flush time even the number of records does not meet the threshold.
+    * @param inTime input read time of the current cycle. Compare this time with the time saved with last checkpoint yields the data interval of the input source
     * @return The delta successfully written for the purpose of checkpoint. If all data are written, it's the same as delta
     *         Some data in the buffer may not be written for 2 reasons:
     *         1. external failure: writing to the sink may fail
@@ -23,7 +24,7 @@ trait Writer[B <: BufferedData, C <: Checkpoint[D, C], D, Meta] extends Module {
     *         In case of Kafka Spark RDD, local buffering is simply a matter of manipulating the Kafka OffsetRanges since everything is lazy
     *         The detailed metrics should also be reflected in the writer's implementation
     */
-  def write(data: B, lastCheckpoint: C): Meta
+  def write(data: B, lastCheckpoint: C, inTime: Long): Meta
   def getMetrics(meta: Meta): Seq[Map[Any, Any]]
 
   /**
@@ -34,9 +35,9 @@ trait Writer[B <: BufferedData, C <: Checkpoint[D, C], D, Meta] extends Module {
     */
   def getDelta(meta: Meta): Option[D] = None
 
-  final def execute(data: B, lastCheckpoint: C): Option[D] = {
+  final def execute(data: B, lastCheckpoint: C, inTime: Long): Option[D] = {
     phaseStarted(Phase.Write)
-    Try(write(data, lastCheckpoint))
+    Try(write(data, lastCheckpoint, inTime))
     match {
       case Success(meta) =>
         updateMetrics(getMetrics(meta))
