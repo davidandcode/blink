@@ -20,11 +20,6 @@ class KafkaTimePartitionedMessageGCSWriter()
     */
   override def write(data: SparkRDD[KafkaTimePartitionedMessage]): Seq[OffsetRange] = ???
 
-  override def inBytes(meta: Seq[OffsetRange]): Long = ???
+  override def getMetrics(meta: Seq[OffsetRange]): Seq[Map[Any, Any]] = ???
 
-  override def inRecords(meta: Seq[OffsetRange]): Long = ???
-
-  override def outBytes(meta: Seq[OffsetRange]): Long = ???
-
-  override def outRecords(meta: Seq[OffsetRange]): Long = ???
 }

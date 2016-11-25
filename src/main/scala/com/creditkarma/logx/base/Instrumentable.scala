@@ -21,12 +21,12 @@ trait Instrumentable {
     }
   }
 
-  def statusUpdate(module: Module, status: Status): Unit = {
+  def updateStatus(module: Module, status: Status): Unit = {
     instrumentors.foreach(_.updateStatus(module, status))
   }
 
-  def metricUpdate(module: Module, metrics: Map[MetricArgs.Value, Any]): Unit = {
-    instrumentors.foreach(_.updateMetric(module, metrics))
+  def updateMetrics(module: Module, metrics: Seq[Map[Any, Any]]): Unit = {
+    instrumentors.foreach(_.updateMetrics(module, metrics))
   }
 
   def cycleStarted(): Unit = {

@@ -37,14 +37,9 @@ object KafkaTest1 {
       collectedData ++= inData
       (inData.size, inData.map(_.size).sum)
     }
-
-    override def inBytes(meta: (Long, Long)): Long = meta._2
-
-    override def inRecords(meta: (Long, Long)): Long = meta._1
-
-    override def outBytes(meta: (Long, Long)): Long = meta._2
-
-    override def outRecords(meta: (Long, Long)): Long = meta._1
+    override def getMetrics(meta: (Long, Long)): Seq[Map[Any, Any]] = {
+      Seq(Map("records"->meta._1, "bytes"->meta._2))
+    }
   }
 
   class InMemoryKafkaCheckpointService extends CheckpointService[KafkaCheckpoint]{

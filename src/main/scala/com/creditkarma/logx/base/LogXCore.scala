@@ -31,9 +31,9 @@ class LogXCore[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta, C], 
   private def loadCheckpointAndThen(): Unit = {
     Try(checkpointService.executeLoad()) match {
       case Success(lastCheckpoint) =>
-        statusUpdate(new StatusOK(s"got last checkpoint ${lastCheckpoint}"))
+        updateStatus(new StatusOK(s"got last checkpoint ${lastCheckpoint}"))
         readAndThen(lastCheckpoint)
-      case Failure(f) => statusUpdate(new StatusError(f, "checkpoint load failure"))
+      case Failure(f) => updateStatus(new StatusError(f, "checkpoint load failure"))
     }
   }
 
@@ -42,13 +42,13 @@ class LogXCore[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta, C], 
       case Success((inData, inDelta, flush)) =>
         if (flush) {
           lastFlushTime = System.currentTimeMillis()
-          statusUpdate(new StatusOK("ready to flush"))
+          updateStatus(new StatusOK("ready to flush"))
           transformAndThen(lastCheckpoint, inDelta, inData)
         }
         else{
-          statusUpdate(new StatusOK("not enough to flush"))
+          updateStatus(new StatusOK("not enough to flush"))
         }
-      case Failure(f) => statusUpdate(new StatusError(f, "read failure"))
+      case Failure(f) => updateStatus(new StatusError(f, "read failure"))
     }
   }
 
@@ -56,28 +56,28 @@ class LogXCore[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta, C], 
     Try(transformer.execute(inData)) match {
       case Success(outData) =>
         writeAndThen(lastCheckpoint, inDelta, outData)
-      case Failure(f) => statusUpdate(new StatusError(f, "transform failure"))
+      case Failure(f) => updateStatus(new StatusError(f, "transform failure"))
     }
   }
 
   private def writeAndThen(lastCheckpoint: C, inDelta: Delta, outData: O): Unit = {
     Try(writer.execute(outData)) match {
       case Success(outDelta) =>
-        statusUpdate(new StatusOK("ready to checkpoint"))
+        updateStatus(new StatusOK("ready to checkpoint"))
         commitCheckpoint(
           lastCheckpoint
             .mergeDelta(outDelta.getOrElse(inDelta)))
       case Failure(f)=>
-        statusUpdate(new StatusError(f, "write failure"))
+        updateStatus(new StatusError(f, "write failure"))
     }
   }
 
   private def commitCheckpoint(cp: C): Unit = {
     Try(checkpointService.executeCommit(cp)) match {
       case Success(_) =>
-        statusUpdate(new StatusOK(s"checkpoint success ${cp}"))
+        updateStatus(new StatusOK(s"checkpoint success ${cp}"))
       case Failure(f) =>
-        statusUpdate(new StatusError(f, "checkpoint commit failure"))
+        updateStatus(new StatusError(f, "checkpoint commit failure"))
     }
   }
 
@@ -107,7 +107,7 @@ class LogXCore[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta, C], 
   }
 
   def close(): Unit = {
-    statusUpdate(new StatusOK("Shutting down"))
+    updateStatus(new StatusOK("Shutting down"))
     reader.close()
     writer.close()
   }

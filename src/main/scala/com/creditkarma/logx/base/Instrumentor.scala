@@ -22,6 +22,13 @@ trait Instrumentor {
 
   def updateStatus(module: Module, status: Status): Unit
 
-  def updateMetric(module: Module, metrics: Map[MetricArgs.Value, Any] = Map.empty): Unit
+  /**
+    *
+    * @param module
+    * @param metrics for flexibility, Seq[Map[Any, Any] ] can represent all metrics without introducing another type parameter into the framework
+    *                The modules(reader, writer etc.) implementations can chose their specific taxonomy for metrics representation,
+    *                and the corresponding instrumentor implementation should understand them.
+    */
+  def updateMetrics(module: Module, metrics: Seq[Map[Any, Any]]): Unit
 
 }

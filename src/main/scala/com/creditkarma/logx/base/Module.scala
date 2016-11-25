@@ -6,12 +6,12 @@ package com.creditkarma.logx.base
 trait Module extends Instrumentable {
   def moduleType: ModuleType.Value
 
-  def statusUpdate(status: Status): Unit = {
-    instrumentors.foreach(_.updateStatus(this, status))
+  def updateStatus(status: Status): Unit = {
+    updateStatus(this, status)
   }
 
-  def metricUpdate(metrics: Map[MetricArgs.Value, Any]): Unit = {
-    instrumentors.foreach(_.updateMetric(this, metrics))
+  def updateMetrics(metrics: Seq[Map[Any, Any]]): Unit = {
+    updateMetrics(this, metrics)
   }
 }
 

@@ -37,7 +37,7 @@ class KafkaSparkRDDReader[K, V](val kafkaParams: Map[String, Object])
     _kafkaConsumer match {
       case Some(kc) => kc
       case None =>
-        statusUpdate(this, new StatusOK(s"Creating Kafka consumer with ${kafkaParams}"))
+        updateStatus(this, new StatusOK(s"Creating Kafka consumer with ${kafkaParams}"))
         Try(
           new KafkaConsumer[K, V](kafkaParams.asJava)
         ) match {
@@ -45,7 +45,7 @@ class KafkaSparkRDDReader[K, V](val kafkaParams: Map[String, Object])
             _kafkaConsumer = Some(kc)
             kc
           case Failure(f) =>
-            statusUpdate(new StatusError(new Exception(s"Failed to create Kafka consumer: ${kafkaParams}", f)))
+            updateStatus(new StatusError(new Exception(s"Failed to create Kafka consumer: ${kafkaParams}", f)))
             throw f
         }
     }
@@ -55,7 +55,7 @@ class KafkaSparkRDDReader[K, V](val kafkaParams: Map[String, Object])
     _kafkaConsumer match {
       case Some(kc) => kc.close()
       case None =>
-        statusUpdate(new StatusOK(s"Closing kafka consumer in reader $this"))
+        updateStatus(new StatusOK(s"Closing kafka consumer in reader $this"))
     }
   }
 
@@ -67,7 +67,7 @@ class KafkaSparkRDDReader[K, V](val kafkaParams: Map[String, Object])
       pi => new TopicPartition(pi.topic(), pi.partition())
     }.toSeq
 
-    statusUpdate(this, new StatusOK(s"Got topic partitions ${topicPartitions}"))
+    updateStatus(this, new StatusOK(s"Got topic partitions ${topicPartitions}"))
 
     val checkpointOffsetMap = checkpoint.nextStartingOffset()
     kafkaConsumer.assign(topicPartitions.asJava) // initialize empty partition offset to 0, otherwise it'll through Exception
@@ -80,7 +80,7 @@ class KafkaSparkRDDReader[K, V](val kafkaParams: Map[String, Object])
             case Some(checkpointOffset) => // the topic partition is checkpointed previously
               if(checkpointOffset < earliestOffset) // some offset is missed from the last checkpoint and what is currently available
                 {
-                  statusUpdate(this, new StatusError(new Exception(s"Missing messages: ${tp}, from $checkpointOffset to $earliestOffset")))
+                  updateStatus(this, new StatusError(new Exception(s"Missing messages: ${tp}, from $checkpointOffset to $earliestOffset")))
                 }
 
               tp -> checkpointOffset
@@ -101,7 +101,7 @@ class KafkaSparkRDDReader[K, V](val kafkaParams: Map[String, Object])
           )
       }.filter(_.count() > 0).toSeq
 
-    statusUpdate(this, new StatusOK(s"Fetched offset ranges: ${fetchedOffsetRanges}"))
+    updateStatus(this, new StatusOK(s"Fetched offset ranges: ${fetchedOffsetRanges}"))
 
     (new SparkRDD[ConsumerRecord[K, V]](
         KafkaUtils.createRDD[K, V](
@@ -139,19 +139,14 @@ class KafkaSparkRDDReader[K, V](val kafkaParams: Map[String, Object])
     * @return whether the currently fetched/buffered data should be flushed down the stream
     */
   override def flush(lastFlushTime: Long, meta: Seq[OffsetRange]): Boolean = {
-    System.currentTimeMillis() - lastFlushTime >= flushInterval || inRecords(meta) >= maxRecordsPerPartition
-  }
-
-  override def inRecords(meta: Seq[OffsetRange]): Long = {
-    if(meta.isEmpty) 0 else meta.map(_.count()).sum
-  }
-
-  override def inBytes(meta: Seq[OffsetRange]): Long = {
-    statusUpdate(this, new StatusOK("SparkRDD read bytes info is not available at read time (this is expected)"))
-    0
+    System.currentTimeMillis() - lastFlushTime >= flushInterval || meta.exists(_.count()>=maxRecordsPerPartition)
   }
 
   // for this reader, read meta is the same as read delta,
   // but in general meta data is superset of delta
   override def getDelta(meta: Seq[OffsetRange]): Seq[OffsetRange] = meta
+
+  override def getMetrics(meta: Seq[OffsetRange]): Seq[Map[Any, Any]] = {
+    Seq(Map("records" -> meta.map(_.count()).sum))
+  }
 }

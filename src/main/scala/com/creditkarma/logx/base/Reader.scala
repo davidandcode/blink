@@ -29,8 +29,7 @@ trait Reader[B <: BufferedData, C <: Checkpoint[D, C], D, Meta] extends Module {
     */
   def flush(lastFlushTime: Long, meta: Meta): Boolean
 
-  def inRecords(meta: Meta): Long
-  def inBytes(meta: Meta): Long
+  def getMetrics(meta: Meta): Seq[Map[Any, Any]]
 
   def getDelta(meta: Meta): D
 
@@ -39,12 +38,7 @@ trait Reader[B <: BufferedData, C <: Checkpoint[D, C], D, Meta] extends Module {
     Try(fetchData(lastFlushTime, checkpoint))
     match {
       case Success((data, meta)) =>
-        metricUpdate(
-          Map(
-            MetricArgs.InRecords->inRecords(meta),
-            MetricArgs.InBytes->inBytes(meta)
-          )
-        )
+        updateMetrics(getMetrics(meta))
         phaseCompleted(Phase.Read)
         (data, getDelta(meta), flush(lastFlushTime, meta))
       case Failure(f) => throw f

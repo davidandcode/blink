@@ -16,10 +16,7 @@ trait Writer[B <: BufferedData, Delta, Meta] extends Module {
     * @return The delta successfully written for the purpose of checkpoint. If all data are written, it's the same as delta
     */
   def write(data: B): Meta
-  def inBytes(meta: Meta): Long
-  def inRecords(meta: Meta): Long
-  def outBytes(meta: Meta): Long
-  def outRecords(meta: Meta): Long
+  def getMetrics(meta: Meta): Seq[Map[Any, Any]]
 
   /**
     *
@@ -34,14 +31,7 @@ trait Writer[B <: BufferedData, Delta, Meta] extends Module {
     Try(write(data))
     match {
       case Success(meta) =>
-        metricUpdate(
-          Map(
-            MetricArgs.InRecords->inRecords(meta),
-            MetricArgs.InBytes->inBytes(meta),
-            MetricArgs.OutRecords->outRecords(meta),
-            MetricArgs.OutBytes->outBytes(meta)
-          )
-        )
+        updateMetrics(getMetrics(meta))
         phaseCompleted(Phase.Write)
         getDelta(meta)
       case Failure(f) => throw f
