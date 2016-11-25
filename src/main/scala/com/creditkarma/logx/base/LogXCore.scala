@@ -6,12 +6,12 @@ import scala.util.{Failure, Success, Try}
   * Created by yongjia.wang on 11/16/16.
   */
 
-class LogXCore[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta, C], Delta]
+final class LogXCore[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta, C], Delta]
 (
   val appName: String,
   reader: Reader[I, C, Delta, _],
   transformer: Transformer[I, O],
-  writer: Writer[O, Delta, _],
+  writer: Writer[O, C, Delta, _],
   checkpointService: CheckpointService[C]
 ) extends Module {
 
@@ -61,7 +61,7 @@ class LogXCore[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta, C], 
   }
 
   private def writeAndThen(lastCheckpoint: C, inDelta: Delta, outData: O): Unit = {
-    Try(writer.execute(outData)) match {
+    Try(writer.execute(outData, lastCheckpoint)) match {
       case Success(outDelta) =>
         updateStatus(new StatusOK("ready to checkpoint"))
         commitCheckpoint(

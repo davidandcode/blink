@@ -30,9 +30,9 @@ object KafkaTest1 {
 
 
   class KafkaSparkRDDMessageCollector(collectedData: ListBuffer[String])
-    extends Writer[SparkRDD[ConsumerRecord[String, String]], Seq[OffsetRange], (Long, Long)]{
+    extends Writer[SparkRDD[ConsumerRecord[String, String]], KafkaCheckpoint, Seq[OffsetRange], (Long, Long)]{
 
-    override def write(data: SparkRDD[ConsumerRecord[String, String]]): (Long, Long) = {
+    override def write(data: SparkRDD[ConsumerRecord[String, String]], lastCheckpoint: KafkaCheckpoint): (Long, Long) = {
       val inData = data.rdd.map(_.value()).collect()
       collectedData ++= inData
       (inData.size, inData.map(_.size).sum)
