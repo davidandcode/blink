@@ -2,10 +2,12 @@ package com.creditkarma.logx.example
 
 import java.io.{BufferedReader, FileReader}
 
+import com.creditkarma.logx.Utils
 import com.creditkarma.logx.base.{BufferedData, CheckpointService, Transformer, Writer, _}
 import com.creditkarma.logx.impl.checkpoint.KafkaCheckpoint
 import com.creditkarma.logx.impl.streambuffer.SparkRDD
 import com.creditkarma.logx.impl.streamreader.KafkaSparkRDDReader
+import com.creditkarma.logx.impl.transformer.{KafkaMessageWithId, KafkaSparkMessageIdTransformer}
 import com.creditkarma.logx.instrumentation.LogInfoInstrumentor
 import info.batey.kafka.unit.KafkaUnit
 import org.apache.kafka.clients.consumer.ConsumerRecord
@@ -30,10 +32,9 @@ object KafkaTest1 {
 
 
   class KafkaSparkRDDMessageCollector(collectedData: ListBuffer[String])
-    extends Writer[SparkRDD[ConsumerRecord[String, String]], KafkaCheckpoint, Seq[OffsetRange], (Long, Long)]{
-
-    override def write(data: SparkRDD[ConsumerRecord[String, String]], lastCheckpoint: KafkaCheckpoint, inTime: Long): (Long, Long) = {
-      val inData = data.rdd.map(_.value()).collect()
+    extends Writer[SparkRDD[KafkaMessageWithId[String, String]], KafkaCheckpoint, Seq[OffsetRange], (Long, Long)]{
+    override def write(data: SparkRDD[KafkaMessageWithId[String, String]], lastCheckpoint: KafkaCheckpoint, inTime: Long): (Long, Long) = {
+      val inData = data.rdd.map(_.value).collect()
       collectedData ++= inData
       (inData.size, inData.map(_.size).sum)
     }
@@ -137,13 +138,8 @@ object KafkaTest1 {
     val collectedData: ListBuffer[String] = ListBuffer.empty
     val reader = new KafkaSparkRDDReader[String, String](kafkaParams)
     reader.setMaxFetchRecordsPerPartition(1)
-    val testLogX = new LogXCore(
-      "test-logX",
-      reader = reader,
-      transformer = new IdentityTransformer[SparkRDD[ConsumerRecord[String, String]]](),
-      writer = new KafkaSparkRDDMessageCollector(collectedData),
-      checkpointService = new InMemoryKafkaCheckpointService()
-    )
+    val testLogX = Utils.createKafkaSparkFlow(
+      "test-logX", kafkaParams, new KafkaSparkRDDMessageCollector(collectedData), new InMemoryKafkaCheckpointService())
 
 
     testLogX.registerInstrumentor(LogInfoInstrumentor)

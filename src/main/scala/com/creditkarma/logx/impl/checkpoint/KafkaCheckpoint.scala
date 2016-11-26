@@ -5,29 +5,34 @@ import org.apache.kafka.common.TopicPartition
 import org.apache.spark.streaming.kafka010.OffsetRange
 
 /**
-  * For Kafka, the checkpoint is the end of each offsetRange, which will be used as stating point to construct new offsetRanges
-  * The reader is responsible for correctly interpreting the checkpoint, and generating new checkpoint for next batch
-  * @param offsetRanges
+  * @param timestampedOffsetRanges the complete checkpoint information for Kafka,
+  *        including the topic partition offset ranges and the last time it was read
+  *        Most likely, the Kafka reader only needs to look at offset ranges, and buffer all the new data
+  *        The writer may need to look at the timestamps in order to make sure all topic-partitions,
+  *        especially the low velocity ones, are flush at least once a while
   */
-class KafkaCheckpoint(val offsetRanges: Seq[(OffsetRange, Long)] = Seq.empty) extends Checkpoint[Seq[OffsetRange], KafkaCheckpoint]{
+class KafkaCheckpoint(val timestampedOffsetRanges: Seq[(OffsetRange, Long)] = Seq.empty)
+  extends Checkpoint[Seq[OffsetRange], KafkaCheckpoint]{
 
   def nextStartingOffset(): Map[TopicPartition, Long] = {
-    offsetRanges.map{
+    timestampedOffsetRanges.map{
       case (osr, ts) => osr.topicPartition() -> osr.untilOffset
     }.toMap
   }
 
-  override def toString: String = offsetRanges.mkString(", ")
+  override def toString: String = timestampedOffsetRanges.mkString(", ")
 
   /**
     *
     * @param delta delta of the source to be merged with the checkpoint
-    * @param inTime timestamp in epoch ms of the input read time, this information can be used for time based flush policy at more granular level such as per topic partition flush
+    * @param inTime timestamp in epoch ms of the input read time,
+    *               this information can be used for time based flush policy at more granular level
+    *               such as per topic partition flush
     * @return
     */
   override def mergeDelta(delta: Seq[OffsetRange], inTime: Long): KafkaCheckpoint = {
     val offsetRangesMap = collection.mutable.Map.empty[TopicPartition, (OffsetRange, Long)] ++
-      offsetRanges.map{
+      timestampedOffsetRanges.map{
         case(osr, ts) => osr.topicPartition() -> (osr, ts)
       }.toMap
     for(offsetRange <- delta){

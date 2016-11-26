@@ -2,10 +2,15 @@ package com.creditkarma.logx.base
 
 import scala.util.{Failure, Success, Try}
 
-/**
-  * @tparam Meta meta data of the read operation, used to construct checkpoint delta and metrics
-  */
-trait Reader[B <: BufferedData, C <: Checkpoint[D, C], D, Meta] extends Module {
+
+trait ReadMeta[D] {
+  def delta: D
+  def metrics: Seq[Map[Any, Any]]
+  def readTime: Long
+  def shouldFlush: Boolean
+}
+
+trait Reader[B <: BufferedData, C <: Checkpoint[D, C], D, M <: ReadMeta[D]] extends Module {
   override def moduleType: ModuleType.Value = ModuleType.Reader
 
   def start(): Unit = {}
@@ -21,26 +26,16 @@ trait Reader[B <: BufferedData, C <: Checkpoint[D, C], D, Meta] extends Module {
     * @return the delta of the fetched data
     *
     */
-  def fetchData(lastFlushTime: Long, checkpoint: C): (B, Meta)
+  def fetchData(checkpoint: C): (B, M)
 
-  /**
-    * This is about streaming flush policy, can be based on data size, time interval or combination
-    * @return whether the currently fetched data should be send down the stream
-    */
-  def flush(lastFlushTime: Long, meta: Meta): Boolean
-
-  def getMetrics(meta: Meta): Seq[Map[Any, Any]]
-
-  def getDelta(meta: Meta): D
-
-  final def execute(lastFlushTime: Long, checkpoint: C): (B, D, Boolean) = {
+  final def execute(checkpoint: C): (B, D, Boolean, Long) = {
     phaseStarted(Phase.Read)
-    Try(fetchData(lastFlushTime, checkpoint))
+    Try(fetchData(checkpoint))
     match {
       case Success((data, meta)) =>
-        updateMetrics(getMetrics(meta))
+        updateMetrics(meta.metrics)
         phaseCompleted(Phase.Read)
-        (data, getDelta(meta), flush(lastFlushTime, meta))
+        (data, meta.delta, meta.shouldFlush, meta.readTime)
       case Failure(f) => throw f
     }
   }

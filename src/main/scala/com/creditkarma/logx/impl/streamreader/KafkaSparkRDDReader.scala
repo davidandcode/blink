@@ -1,6 +1,6 @@
 package com.creditkarma.logx.impl.streamreader
 
-import com.creditkarma.logx.base.{Reader, StatusError, StatusOK}
+import com.creditkarma.logx.base.{ReadMeta, Reader, StatusError, StatusOK}
 import com.creditkarma.logx.impl.checkpoint.KafkaCheckpoint
 import com.creditkarma.logx.impl.streambuffer.SparkRDD
 import org.apache.kafka.clients.consumer.{ConsumerRecord, KafkaConsumer}
@@ -12,11 +12,89 @@ import org.apache.spark.streaming.kafka010.{KafkaUtils, OffsetRange}
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
+class TopicPartitionMeta
+(readTime: Long, availableOffsetRange: OffsetRange, checkpointInfo: Option[(OffsetRange, Long)],
+ maxRecords: Long, maxInterval: Long){
+
+  val nextOffsetRange: OffsetRange = checkpointInfo match {
+    case Some((osr, time)) =>
+      val fromOffset = Math.max(osr.untilOffset, availableOffsetRange.fromOffset)
+      val untilOffset = Math.min(fromOffset + maxRecords, availableOffsetRange.untilOffset)
+      OffsetRange(availableOffsetRange.topicPartition(), fromOffset, untilOffset)
+    case None =>
+      val fromOffset = availableOffsetRange.fromOffset
+      val untilOffset = Math.min(fromOffset + maxRecords, availableOffsetRange.untilOffset)
+      OffsetRange(availableOffsetRange.topicPartition(), fromOffset, untilOffset)
+  }
+
+  // gap must be reported since it's data lost
+  val gap: Long = checkpointInfo match {
+    case Some((osr, time)) =>
+      Math.max(0, availableOffsetRange.fromOffset - osr.untilOffset)
+    case None => 0 // Gap is relative to previous checkpoint, if no checkpoint, there is no gap
+  }
+
+  def shouldFlush: Boolean = nextOffsetRange.count() >= maxRecords || {
+    checkpointInfo match {
+      case Some((offset, time)) => readTime - time >= maxInterval
+      case None => true
+    }
+  }
+
+  def metric: Map[Any, Any] =
+    Map(
+      "topic" -> availableOffsetRange.topic,
+      "partition" -> availableOffsetRange.partition,
+      "gap" -> gap,
+      "available records" -> availableOffsetRange.count(),
+      "flushed records" -> checkpointInfo.map(_._1.count()),
+      "records to flush" -> {if(shouldFlush) nextOffsetRange.count() else 0L},
+      "read time" -> readTime,
+      "checkpoint read time" -> checkpointInfo.map(_._2),
+      "max records per partition" -> maxRecords,
+      "flush interval" -> maxInterval
+    )
+}
+
 /**
-  * Created by yongjia.wang on 11/16/16.
+  *
+  * @param readTime Timestamp of the read operation of this cycle
+  * @param lastCheckpoint
+  * @param offsetRanges Currently available topic partition offsetRanges
+  * @param maxRecordsPerPartition It's possible to set topic specific policy
   */
+class KafkaSparkReaderMeta
+(override val readTime: Long, lastCheckpoint: KafkaCheckpoint, offsetRanges: Seq[OffsetRange],
+ maxRecordsPerPartition: Long, maxInterval: Long) extends ReadMeta[Seq[OffsetRange]] {
+
+  val topicPartitionMetaData: Seq[TopicPartitionMeta] = {
+    val lastCheckpointMap = lastCheckpoint.timestampedOffsetRanges.map{
+      case (osr, time) => osr.topicPartition() -> (osr, time)
+    }.toMap
+    offsetRanges.map{
+      osr => new TopicPartitionMeta(readTime, osr, lastCheckpointMap.get(osr.topicPartition()),
+        maxRecordsPerPartition, maxInterval)
+    }
+  }
+
+  val delta: Seq[OffsetRange] =
+    topicPartitionMetaData.iterator
+      .filter{
+        meta => meta.shouldFlush && meta.nextOffsetRange.count() > 0
+      }.map(_.nextOffsetRange).toSeq
+
+  def metrics: Seq[Map[Any, Any]] = topicPartitionMetaData.map(_.metric) :+
+    Map[Any, Any]("topics"->totalTopics, "messages"->totalMessages, "dimension"->"all")
+
+  def totalTopics: Int = offsetRanges.map(_.topic).distinct.size
+
+  def totalMessages: Long = offsetRanges.map(_.count()).sum
+
+  override def shouldFlush: Boolean = delta.nonEmpty
+}
+
 class KafkaSparkRDDReader[K, V](val kafkaParams: Map[String, Object])
-  extends Reader[SparkRDD[ConsumerRecord[K, V]], KafkaCheckpoint, Seq[OffsetRange], Seq[OffsetRange]] {
+  extends Reader[SparkRDD[ConsumerRecord[K, V]], KafkaCheckpoint, Seq[OffsetRange], KafkaSparkReaderMeta] {
 
   private val DefaultFlushInterval: Long = 1000
   private val DefaultMaxRecordsPerPartition: Long = 1000
@@ -59,8 +137,9 @@ class KafkaSparkRDDReader[K, V](val kafkaParams: Map[String, Object])
     }
   }
 
-  override def fetchData(lastFlushTime: Long, checkpoint: KafkaCheckpoint): (SparkRDD[ConsumerRecord[K, V]], Seq[OffsetRange]) = {
+  override def fetchData(checkpoint: KafkaCheckpoint): (SparkRDD[ConsumerRecord[K, V]], KafkaSparkReaderMeta) = {
 
+    val readTime = System.currentTimeMillis()
     val topicPartitions: Seq[TopicPartition] = kafkaConsumer.listTopics().asScala.filter {
       case (topic: String, _) => topicFilter(topic)
     }.flatMap(_._2.asScala).map {
@@ -69,54 +148,33 @@ class KafkaSparkRDDReader[K, V](val kafkaParams: Map[String, Object])
 
     updateStatus(this, new StatusOK(s"Got topic partitions ${topicPartitions}"))
 
-    val checkpointOffsetMap = checkpoint.nextStartingOffset()
     kafkaConsumer.assign(topicPartitions.asJava) // initialize empty partition offset to 0, otherwise it'll through Exception
     kafkaConsumer.seekToBeginning(topicPartitions.asJava)
-    val topicPartitionStartingOffsetMap: Map[TopicPartition, Long] =
+    val topicPartitionStartingOffsetMap: Seq[(TopicPartition, Long)] =
       topicPartitions.map{
-        tp =>
-          val earliestOffset = kafkaConsumer.position(tp)
-          checkpointOffsetMap.get(tp) match {
-            case Some(checkpointOffset) => // the topic partition is checkpointed previously
-              if(checkpointOffset < earliestOffset) // some offset is missed from the last checkpoint and what is currently available
-                {
-                  updateStatus(this, new StatusError(new Exception(s"Missing messages: ${tp}, from $checkpointOffset to $earliestOffset")))
-                  tp -> earliestOffset
-                }
-              else{
-                tp -> checkpointOffset
-                // TODO
-                // it is possible the kafka data are purged after seeking and before Spark read, there is no guarantee of read consistency between this reader consumer and the spark RDD consumer
-                // It appears Kafka by default has quite long window to reten deleted records, it should cover the very short time between seeking and read
-              }
-            case None => // a new topic partition
-              tp -> earliestOffset
-          }
-      }.toMap
+        tp => (tp, kafkaConsumer.position(tp))
+
+      }
 
     // the end of offset range always have the exclusive semantics (starting offset is inclusive)
     kafkaConsumer.seekToEnd(topicPartitions.asJava)
-    val fetchedOffsetRanges =
-      topicPartitionStartingOffsetMap.map{
-        case (tp: TopicPartition, startingOffset: Long) =>
-          val endPosition = kafkaConsumer.position(tp)
-          OffsetRange(
-            tp, startingOffset,
-            Math.min(startingOffset + maxRecordsPerPartition, endPosition)
-          )
-      }.filter(_.count() > 0).toSeq
+    val availableOffsetRanges: Seq[OffsetRange] =
+    topicPartitionStartingOffsetMap.map{
+      case (tp, earliestOffset) => OffsetRange(tp, earliestOffset, kafkaConsumer.position(tp))
+    }
 
-    updateStatus(this, new StatusOK(s"Fetched offset ranges: ${fetchedOffsetRanges}"))
+    val meta = new KafkaSparkReaderMeta(readTime, checkpoint,
+      availableOffsetRanges,maxRecordsPerPartition, flushInterval)
 
     (new SparkRDD[ConsumerRecord[K, V]](
         KafkaUtils.createRDD[K, V](
           SparkContext.getOrCreate(), // spark context
           kafkaParams.asJava,
-          fetchedOffsetRanges.toArray, //message ranges
+          meta.delta.toArray, //message ranges
           PreferConsistent // location strategy
         )
       ),
-      fetchedOffsetRanges
+      meta
       )
   }
   /**
@@ -137,21 +195,4 @@ class KafkaSparkRDDReader[K, V](val kafkaParams: Map[String, Object])
     topic.indexOf("__consumer_offsets") == -1
   }
 
-  //override def fetchedRecords: Long = if(_fetchedOffsetRanges.isEmpty) 0 else _fetchedOffsetRanges.map(_.count()).sum
-  /**
-    * This is about streaming flush policy, can be based on data size, time interval or combination
-    *
-    * @return whether the currently fetched/buffered data should be flushed down the stream
-    */
-  override def flush(lastFlushTime: Long, meta: Seq[OffsetRange]): Boolean = {
-    System.currentTimeMillis() - lastFlushTime >= flushInterval || meta.exists(_.count()>=maxRecordsPerPartition)
-  }
-
-  // for this reader, read meta is the same as read delta,
-  // but in general meta data is superset of delta
-  override def getDelta(meta: Seq[OffsetRange]): Seq[OffsetRange] = meta
-
-  override def getMetrics(meta: Seq[OffsetRange]): Seq[Map[Any, Any]] = {
-    Seq(Map("records" -> meta.map(_.count()).sum))
-  }
 }

@@ -26,7 +26,6 @@ final class LogXCore[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta
 
   private val DefaultPollingInterval = 1000L
 
-  var lastFlushTime: Long = 0
 
   private def loadCheckpointAndThen(): Unit = {
     Try(checkpointService.executeLoad()) match {
@@ -38,11 +37,9 @@ final class LogXCore[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta
   }
 
   private def readAndThen(lastCheckpoint: C): Unit = {
-    val inTime = System.currentTimeMillis()
-    Try(reader.execute(lastFlushTime, lastCheckpoint)) match {
-      case Success((inData, inDelta, flush)) =>
-        if (flush) {
-          lastFlushTime = System.currentTimeMillis()
+    Try(reader.execute(lastCheckpoint)) match {
+      case Success((inData, inDelta, flush, inTime)) =>
+        if(flush) {
           updateStatus(new StatusOK("ready to flush"))
           transformAndThen(lastCheckpoint, inTime, inDelta, inData)
         }
@@ -107,7 +104,6 @@ final class LogXCore[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta
         }
       case Failure(f) => throw new Exception(s"Failed to start reader ${reader}", f)
     }
-
   }
 
   def close(): Unit = {
