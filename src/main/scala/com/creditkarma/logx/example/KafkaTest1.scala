@@ -13,6 +13,7 @@ import com.creditkarma.logx.instrumentation.LogInfoInstrumentor
 import info.batey.kafka.unit.KafkaUnit
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
+import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 import org.apache.log4j.{Level, LogManager}
 import org.apache.spark.streaming.kafka010.OffsetRange
@@ -53,33 +54,11 @@ object KafkaTest1 {
     }
   }
 
-  val partitioner = new MessagePartitioner[String, String] {
-    override def contentBasedPartition(payload: String): Option[String] = None
-  }
-
-  val outputWriterCreator = new KafkaMessageOutputClientCreator[String, String]{
-    override def createClient(): KafkaMessageOutputClient[String, String] = {
-      new KafkaMessageOutputClient[String, String] {
-        //val collectedData: ListBuffer[String] = ListBuffer.empty
-        override def write(partition: String, data: Iterable[KafkaMessageWithId[String, String]]): WriterClientMeta = {
-          val messages = data.map(_.value).toSeq
-          //collectedData ++= messages
-          WriterClientMeta(bytes=messages.map(_.size).sum, records = messages.size, complete=true)
-        }
-      }
-    }
-
-  }
-  val collectorWriter = new KafkaSparkRDDPartitionedWriter[String, String](partitioner, outputWriterCreator)
-
-
-
   class InMemoryKafkaCheckpointService extends CheckpointService[KafkaCheckpoint]{
     var lastCheckPoint: KafkaCheckpoint = new KafkaCheckpoint()
     override def commitCheckpoint(cp: KafkaCheckpoint): Unit = {
       lastCheckPoint = cp
     }
-
     override def lastCheckpoint(): KafkaCheckpoint = {
       lastCheckPoint
     }
@@ -167,10 +146,8 @@ object KafkaTest1 {
 
 
     val collectedData: ListBuffer[String] = ListBuffer.empty
-    val reader = new KafkaSparkRDDReader[String, String](kafkaParams)
-    reader.setMaxFetchRecordsPerPartition(1)
     val testLogX = Utils.createKafkaSparkFlow(
-      "test-logX", kafkaParams, new KafkaSparkRDDMessageCollector(collectedData), new InMemoryKafkaCheckpointService())
+      "test-logX", kafkaParams, new KafkaSparkRDDMessageCollector(collectedData), new InMemoryKafkaCheckpointService(), 1000, flushSize = 1)
 
 
     testLogX.registerInstrumentor(LogInfoInstrumentor)

@@ -37,6 +37,10 @@ object LogInfoInstrumentor extends Instrumentor with LazyLog {
 
   override def updateStatus(module: Module, status: Status): Unit = {
     info(s"Cycle=$cycleId, Module=${module.getClass.getSimpleName}(type=${module.moduleType}), status=${status}")
+    if(status.statusCode == StatusCode.Unexpected){
+      fatal("Unexpected situation is encountered, exit now and must have it fixed, to avoid unrecoverable damages")
+      System.exit(0)
+    }
   }
 
   override def updateMetrics(module: Module, metrics: Metrics): Unit = {

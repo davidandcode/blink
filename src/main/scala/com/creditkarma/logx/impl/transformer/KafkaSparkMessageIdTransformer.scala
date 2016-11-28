@@ -17,6 +17,7 @@ import scala.util.{Failure, Success, Try}
 case class KafkaMessageId(topicPartition: TopicPartition, offset: Long)
 case class KafkaMessageWithId[K, V](key: K, value: V, kmId: KafkaMessageId){
   def offset: Long = kmId.offset
+  def topicPartition: TopicPartition = kmId.topicPartition
 }
 
 class KafkaSparkMessageIdTransformer[K, V]

@@ -1,6 +1,6 @@
 package com.creditkarma.logx.impl.writer
 
-import com.creditkarma.logx.base.{Metric, Metrics, Writer, WriterMeta}
+import com.creditkarma.logx.base._
 import com.creditkarma.logx.impl.checkpoint.KafkaCheckpoint
 import com.creditkarma.logx.impl.streambuffer.SparkRDD
 import com.creditkarma.logx.impl.streamreader.{KafkaMetricDimension, KafkaMetricField}
@@ -10,16 +10,16 @@ import org.apache.spark.streaming.kafka010.OffsetRange
 
 import scala.util.{Failure, Success, Try}
 
-case class KafkaOutputPartitionMeta(partitionInfo: KafkaOutputPartitionInfo, clientMeta: WriterClientMeta, minOffset: Long, maxOffset: Long)
+case class KafkaOutputPartitionMeta[P](partitionInfo: KafkaOutputPartitionInfo[P], clientMeta: WriterClientMeta, minOffset: Long, maxOffset: Long)
 
-case class KafkaTopicPartitionMeta(topicPartition: TopicPartition) extends Metric {
+case class KafkaTopicPartitionMeta[P](topicPartition: TopicPartition) extends Metric {
   /**
     * The number of partitions under each topicPartition is unknown, and can be very large potentially.
     * Therefore an aggregation needs to be performed to get the compact topicPartition level meta
     * Aggregation is called in the context of SparkRDD groupBy, and there is no need to check duplication
     * @param meta
     */
-  def aggregate(meta: KafkaOutputPartitionMeta): Unit = {
+  def aggregate(meta: KafkaOutputPartitionMeta[P]): Unit = {
     _partitions += 1
     _clientConfirmedRecords += meta.clientMeta.records
     _clientConfirmedBytes += meta.clientMeta.bytes
@@ -74,7 +74,7 @@ case class KafkaTopicPartitionMeta(topicPartition: TopicPartition) extends Metri
     )
 }
 
-class KafkaOutputMeta(meta: Seq[KafkaTopicPartitionMeta], readerDelta: Seq[OffsetRange])
+class KafkaOutputMeta[P](meta: Seq[KafkaTopicPartitionMeta[P]], readerDelta: Seq[OffsetRange])
   extends WriterMeta[Seq[OffsetRange]]{
   override def metrics: Metrics = new Metrics {
     override def metrics: Iterable[Metric] = {
@@ -129,8 +129,6 @@ case class WriterClientMeta(records: Long, bytes: Long, complete: Boolean)
   * This iterator tracks the max and min of kafka message offset for validation purpose
   * As long as the data is iterated by the output client, the offset should be updated accordingly
   * @param data
-  * @tparam K
-  * @tparam V
   */
 class KafkaStreamWithOffsetTracking[K, V](data: Iterable[KafkaMessageWithId[K, V]]) extends Iterable[KafkaMessageWithId[K, V]]{
   var minOffset: Long = -1
@@ -152,95 +150,122 @@ class KafkaStreamWithOffsetTracking[K, V](data: Iterable[KafkaMessageWithId[K, V
       }
     }
 }
-trait KafkaMessageOutputClientCreator[K, V] extends Serializable {
-  def createClient(): KafkaMessageOutputClient[K, V]
-}
-trait KafkaMessageOutputClient[K, V] {
+
+trait KafkaPartitionedWriter[K, V, P] extends Serializable {
+  def useSubPartition: Boolean
+  def getSubPartition(payload: V): P
   /**
-    * For a [[KafkaMessageOutputClient]], it's write status is atomic (all or nothing):
+    * For a [[KafkaPartitionedWriter]], it's write status is atomic (all or nothing):
     * either the entire partition is successfully written or none.
     * Even if the writer client supports partial writes, it's still treated atomically by the framework.
-    * This is the simplest way to define contract between client and the framework
-    *
-    * @param partition the full path should have other necessary prefix such as the gcs bucket etc.
+    * @param topicPartition the full path should have other necessary prefix such as the gcs bucket etc.
+    * @param subPartition sub-partition within the kafka topicPartition, such as time based partition
     * @param data stream of data to be written into a single atomic partition
     * @return meta data of writer client, the framework only requires number of records, total bytes and whether the write is 100% complete
     */
-  def write(partition: String, data: Iterable[KafkaMessageWithId[K, V]]): WriterClientMeta
+  def write(topicPartition: TopicPartition, subPartition: Option[P], data: Iterable[KafkaMessageWithId[K, V]]): WriterClientMeta
 
-}
-
-trait MessagePartitioner[K, V] extends Serializable {
-  def contentBasedPartition(payload: V): Option[String]
-  // this is the default rule, which can be modified
-  def partitionInfo(kafkaMessage: KafkaMessageWithId[K, V]): KafkaOutputPartitionInfo =
-    KafkaOutputPartitionInfo(
-      kafkaMessage.kmId.topicPartition,
-      Try(contentBasedPartition(kafkaMessage.value)) match {
-        case Success(p) => p
-        case Failure(f) => Some("_failed_content_partition")
-      }
-    )
-}
-
-/**
-  * Store all partition information and generate [[finalPartition]] as part of the output path
-  * @param topicPartition
-  * @param contentPartition
-  */
-case class KafkaOutputPartitionInfo(topicPartition: TopicPartition, contentPartition: Option[String]){
-  def topic: String = topicPartition.topic
-  def partition: Int = topicPartition.partition
-  // Can make it take a custom method to construct the final partition path
-  def finalPartition: String = contentPartition match {
-    case Some(p) => s"${topic}/${p}/${partition}"
-    case None => s"${topic}/${partition}"
+  final def writeAndExtractOffset
+  (topicPartition: TopicPartition, subPartition: Option[P], data: Iterable[KafkaMessageWithId[K, V]]): (WriterClientMeta, Long, Long) = {
+    val streamWithOffsetTracker = new KafkaStreamWithOffsetTracking(data)
+    val writerMeta = write(topicPartition, subPartition, streamWithOffsetTracker)
+    (writerMeta, streamWithOffsetTracker.minOffset, streamWithOffsetTracker.maxOffset)
   }
 }
 
 /**
-  * [[KafkaSparkRDDPartitionedWriter]] is the closure context of spark lambda, in order to supply [[partitioner]] and [[writerCreator]], so it must be serializable
-  * @param partitioner
-  * @param writerCreator
+  *
+  * @param topicPartition
+  * @param contentPartition
+  */
+case class KafkaOutputPartitionInfo[P](topicPartition: TopicPartition, contentPartition: Option[P]){
+  def topic: String = topicPartition.topic
+  def partition: Int = topicPartition.partition
+}
+
+/**
+  * [[KafkaSparkRDDPartitionedWriter]] is the closure context of spark lambda, in order to supply [[partitionedWriter]]
+  * The collected metrics are for each topic-partition, and should be scalable
+  * If there are too many topic-partitions to fit in memory, the reader should control it.
+  * GroupBy is an expensive operation since it reshuffle the input records without local combining.
+  * In this case, even groupBy is simply performing a sub-partitioning of the original map partitions (one for each kafka topicPartition),
+  * there is no guarantee Spark can make arrangement of the executors to take advantage of it.
+  * This kind of re-shuffling is unavoidable in general since the number of subpartitions may be very large,
+  * and they have to be encapsulated as individual tasks to ensure scalability.
+  * The alternative is to use mapPartition and create multiple streams on the fly for each sub-partition, and perform synchronized blocking iteration
+  * across the subpartitions. The only concern is the number of sub-partitions can be too big to fit in memory, since all the subpartitions must present
+  * in memory before completiong the mapPartition.
   * @tparam K
   * @tparam V
   */
-class KafkaSparkRDDPartitionedWriter[K, V]
-(partitioner: MessagePartitioner[K, V], writerCreator: KafkaMessageOutputClientCreator[K, V])
-  extends Writer[SparkRDD[KafkaMessageWithId[K, V]], KafkaCheckpoint, Seq[OffsetRange], KafkaOutputMeta] with Serializable {
-  override def write(data: SparkRDD[KafkaMessageWithId[K, V]], lastCheckpoint: KafkaCheckpoint, inTime: Long, inDelta: Seq[OffsetRange]): KafkaOutputMeta = {
-    /**
-      * The collected metrics are for each topic-partition, and should be manageable
-      * If there are too many topic-partitions to fit in memory, the reader should control it to begin with.
-      */
-    val topicPartitionMeta =
-    data.rdd
-      .groupBy(partitioner.partitionInfo).map{ // first write each atomic partition and collect meta
-      case (partition, messages) =>
-        // have to pass all through messages once to find the minOffset, this may cause disk spill
-        var minOffset: Long = -1
-        var maxOffset: Long = -1
-        for(m <- messages){
-          if(minOffset == -1 || m.offset < minOffset){
-            minOffset = m.offset
+class KafkaSparkRDDPartitionedWriter[K, V, P]
+(partitionedWriter: KafkaPartitionedWriter[K, V, P])
+  extends Writer[SparkRDD[KafkaMessageWithId[K, V]], KafkaCheckpoint, Seq[OffsetRange], KafkaOutputMeta[P]] with Serializable {
+  override def write(data: SparkRDD[KafkaMessageWithId[K, V]], lastCheckpoint: KafkaCheckpoint, inTime: Long, inDelta: Seq[OffsetRange]): KafkaOutputMeta[P] = {
+
+    val topicPartitionMeta: Seq[KafkaTopicPartitionMeta[P]] =
+    if(partitionedWriter.useSubPartition){
+      data.rdd
+        .groupBy{
+          message => (message.topicPartition, partitionedWriter.getSubPartition(message.value))
+        }.map{ // first write each atomic partition and collect meta
+        case ((topicPartition, subPartition), messages) =>
+          /**
+            * There is no guarantee of message arriving ordering in general, but in case of Spark Kafka RDD,
+            * the output partition is a subpartition of the input KafkaRDD partition, so it should be in order.
+            */
+          val partitionInfo = KafkaOutputPartitionInfo(topicPartition, Some(subPartition))
+          Try(
+            partitionedWriter
+              .writeAndExtractOffset(topicPartition, Some(subPartition), messages)) match {
+            case Success((clientMeta, minOffset, maxOffset)) => KafkaOutputPartitionMeta(partitionInfo, clientMeta, minOffset, maxOffset)
+            case Failure(f) => KafkaOutputPartitionMeta(partitionInfo, WriterClientMeta(0, 0, false), -1, -1)
           }
-          if(maxOffset == -1 || m.offset > maxOffset){
-            maxOffset = m.offset
-          }
-        }
-        Try(
-          writerCreator.createClient()
-            .write(s"${partition.finalPartition}_${minOffset}", messages)) match {
-          case Success(clientMeta) => KafkaOutputPartitionMeta(partition, clientMeta, minOffset, maxOffset)
-          case Failure(f) => KafkaOutputPartitionMeta(partition, WriterClientMeta(0, 0, false), -1, -1)
-        }
-    } // then collect topic-partition level meta
-      .groupBy(_.partitionInfo.topicPartition).map{
-      case(topicPartition, outputMeta) =>
-        val topicPartitionMeta = KafkaTopicPartitionMeta(topicPartition)
-        outputMeta.foreach(topicPartitionMeta.aggregate)
-        topicPartitionMeta
-    }.collect()
-    new KafkaOutputMeta(topicPartitionMeta, inDelta)
+      } // then collect topic-partition level meta
+        .groupBy(_.partitionInfo.topicPartition).map{
+        case(topicPartition, outputMeta) =>
+          val topicPartitionMeta = KafkaTopicPartitionMeta[P](topicPartition)
+          outputMeta.foreach(topicPartitionMeta.aggregate)
+          topicPartitionMeta
+      }.collect()
+    }
+    else{
+      /**
+        * MapPartition only pass through the data once with efficient buffering, it gets a handle of an Iterator instead of an Iterable.
+        * In order to get the topicPartition of the pre-grouped mapPartition, the trick is to poll the first element,
+        * and add it back to the iterable for the writer
+        */
+      data.rdd.mapPartitions {
+        case messageIterator =>
+          val firstMessage = messageIterator.next()
+          val topicPartition = firstMessage.topicPartition
+          val messegesToWrite =
+            new Iterable[KafkaMessageWithId[K, V]]{
+              val _firstMessage = firstMessage
+              var _firstMessagedConsumed = false
+              override def iterator: Iterator[KafkaMessageWithId[K, V]] = new Iterator[KafkaMessageWithId[K, V]]{
+                override def hasNext: Boolean = !_firstMessagedConsumed || messageIterator.hasNext
+                override def next(): KafkaMessageWithId[K, V] = if(!_firstMessagedConsumed) firstMessage else messageIterator.next()
+              }
+            }
+          val partitionInfo = KafkaOutputPartitionInfo[P](topicPartition, None)
+          val outputMeta =
+            Try(
+              partitionedWriter
+                .writeAndExtractOffset(topicPartition, None, messegesToWrite))match {
+              case Success((clientMeta, minOffset, maxOffset)) => KafkaOutputPartitionMeta(partitionInfo, clientMeta, minOffset, maxOffset)
+              case Failure(f) => KafkaOutputPartitionMeta(partitionInfo, WriterClientMeta(0, 0, false), -1, -1)
+            }
+          val topicPartitionMeta = KafkaTopicPartitionMeta[P](topicPartition)
+          topicPartitionMeta.aggregate(outputMeta)
+          Seq(topicPartitionMeta).iterator
+      }.collect()
+    }
+
+    val outputMeta = new KafkaOutputMeta(topicPartitionMeta, inDelta)
+    if(outputMeta.inconsistentOffsetRanges.nonEmpty){
+      updateStatus(new StatusUnexpected(s"Input and output offset ranges does not match ${outputMeta.inconsistentOffsetRanges}"))
+    }
+    outputMeta
   }
 }

@@ -17,10 +17,13 @@ object Utils {
   (name: String,
    kafkaParams: Map[String, Object],
    writer: Writer[SparkRDD[KafkaMessageWithId[K, V]], KafkaCheckpoint, Seq[OffsetRange], _],
-   checkpointService: CheckpointService[KafkaCheckpoint]
+   checkpointService: CheckpointService[KafkaCheckpoint],
+   flushInterval: Long,
+   flushSize: Long
   ): LogXCore[SparkRDD[ConsumerRecord[K, V]], SparkRDD[KafkaMessageWithId[K, V]], KafkaCheckpoint, Seq[OffsetRange]] = {
     val reader = new KafkaSparkRDDReader[K, V](kafkaParams)
-    reader.setMaxFetchRecordsPerPartition(1)
+    reader.setMaxFetchRecordsPerPartition(flushSize)
+    reader.setFlushInterval(flushInterval)
     new LogXCore(
       appName = name,
       reader = reader,
