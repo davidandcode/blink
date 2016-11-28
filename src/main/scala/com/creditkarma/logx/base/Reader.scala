@@ -5,7 +5,7 @@ import scala.util.{Failure, Success, Try}
 
 trait ReadMeta[D] {
   def delta: D
-  def metrics: Seq[Map[Any, Any]]
+  def metrics: Metrics
   def readTime: Long
   def shouldFlush: Boolean
 }

@@ -10,7 +10,7 @@ trait Module extends Instrumentable {
     updateStatus(this, status)
   }
 
-  def updateMetrics(metrics: Seq[Map[Any, Any]]): Unit = {
+  def updateMetrics(metrics: Metrics): Unit = {
     updateMetrics(this, metrics)
   }
 }

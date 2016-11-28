@@ -8,6 +8,7 @@ import com.creditkarma.logx.impl.checkpoint.KafkaCheckpoint
 import com.creditkarma.logx.impl.streambuffer.SparkRDD
 import com.creditkarma.logx.impl.streamreader.KafkaSparkRDDReader
 import com.creditkarma.logx.impl.transformer.{KafkaMessageWithId, KafkaSparkMessageIdTransformer}
+import com.creditkarma.logx.impl.writer._
 import com.creditkarma.logx.instrumentation.LogInfoInstrumentor
 import info.batey.kafka.unit.KafkaUnit
 import org.apache.kafka.clients.consumer.ConsumerRecord
@@ -30,18 +31,48 @@ object KafkaTest1 {
     override def transform(input: I): I = input
   }
 
+  class CollectorMeta(records: Long, bytes: Long) extends WriterMeta[Seq[OffsetRange]]{
+    override def metrics: Metrics =
+      new Metrics {
+        override def metrics: Iterable[Metric] =
+          Seq(new Metric {
+            override def dimensions: Map[Any, Any] = Map.empty
+            override def fields: Map[Any, Any] = Map("records"->records, "bytes"->bytes)
+          })
+      }
 
+    override def outRecords: Long = records
+  }
   class KafkaSparkRDDMessageCollector(collectedData: ListBuffer[String])
-    extends Writer[SparkRDD[KafkaMessageWithId[String, String]], KafkaCheckpoint, Seq[OffsetRange], (Long, Long)]{
-    override def write(data: SparkRDD[KafkaMessageWithId[String, String]], lastCheckpoint: KafkaCheckpoint, inTime: Long): (Long, Long) = {
+    extends Writer[SparkRDD[KafkaMessageWithId[String, String]], KafkaCheckpoint, Seq[OffsetRange], CollectorMeta]{
+    override def write(data: SparkRDD[KafkaMessageWithId[String, String]], lastCheckpoint: KafkaCheckpoint,
+                       inTime: Long, inDelta: Seq[OffsetRange]): CollectorMeta = {
       val inData = data.rdd.map(_.value).collect()
       collectedData ++= inData
-      (inData.size, inData.map(_.size).sum)
-    }
-    override def getMetrics(meta: (Long, Long)): Seq[Map[Any, Any]] = {
-      Seq(Map("records"->meta._1, "bytes"->meta._2))
+      new CollectorMeta(inData.size, inData.map(_.size).sum)
     }
   }
+
+  val partitioner = new MessagePartitioner[String, String] {
+    override def contentBasedPartition(payload: String): Option[String] = None
+  }
+
+  val outputWriterCreator = new KafkaMessageOutputClientCreator[String, String]{
+    override def createClient(): KafkaMessageOutputClient[String, String] = {
+      new KafkaMessageOutputClient[String, String] {
+        //val collectedData: ListBuffer[String] = ListBuffer.empty
+        override def write(partition: String, data: Iterable[KafkaMessageWithId[String, String]]): WriterClientMeta = {
+          val messages = data.map(_.value).toSeq
+          //collectedData ++= messages
+          WriterClientMeta(bytes=messages.map(_.size).sum, records = messages.size, complete=true)
+        }
+      }
+    }
+
+  }
+  val collectorWriter = new KafkaSparkRDDPartitionedWriter[String, String](partitioner, outputWriterCreator)
+
+
 
   class InMemoryKafkaCheckpointService extends CheckpointService[KafkaCheckpoint]{
     var lastCheckPoint: KafkaCheckpoint = new KafkaCheckpoint()
@@ -153,6 +184,9 @@ object KafkaTest1 {
     TestKafkaServer.sendNextMessage(4)
     testLogX.runOneCycle()
     //println(collectedData)
+
+    //TestKafkaServer.sendNextMessage(21)
+    //testLogX.start()
 
     println(collectedData.size)
     println(TestKafkaServer.sentMessages.size)

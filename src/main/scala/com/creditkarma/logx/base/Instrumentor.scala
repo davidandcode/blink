@@ -29,6 +29,6 @@ trait Instrumentor {
     *                The modules(reader, writer etc.) implementations can chose their specific taxonomy for metrics representation,
     *                and the corresponding instrumentor implementation should understand them.
     */
-  def updateMetrics(module: Module, metrics: Seq[Map[Any, Any]]): Unit
+  def updateMetrics(module: Module, metrics: Metrics): Unit
 
 }

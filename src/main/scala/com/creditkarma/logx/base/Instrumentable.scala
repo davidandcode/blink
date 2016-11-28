@@ -5,6 +5,7 @@ package com.creditkarma.logx.base
   */
 trait Instrumentable {
 
+  @transient
   private val _instrumentors: scala.collection.mutable.Map[String, Instrumentor] = scala.collection.mutable.Map.empty
 
   private[base] def instrumentors = _instrumentors.values
@@ -25,7 +26,7 @@ trait Instrumentable {
     instrumentors.foreach(_.updateStatus(module, status))
   }
 
-  def updateMetrics(module: Module, metrics: Seq[Map[Any, Any]]): Unit = {
+  def updateMetrics(module: Module, metrics: Metrics): Unit = {
     instrumentors.foreach(_.updateMetrics(module, metrics))
   }
 

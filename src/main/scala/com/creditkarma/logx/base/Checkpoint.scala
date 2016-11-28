@@ -12,4 +12,5 @@ trait Checkpoint[D, C <: Checkpoint[D, C]] {
     * @return
     */
   def mergeDelta(delta: D, inTime: Long): C
+  type DeltaType = D
 }

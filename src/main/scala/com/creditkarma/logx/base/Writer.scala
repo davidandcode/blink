@@ -2,12 +2,23 @@ package com.creditkarma.logx.base
 
 import scala.util.{Failure, Success, Try}
 
+trait WriterMeta[Delta] {
+  /**
+    *
+    * @return optionally return delta for partial checkpoint
+    *         If none is returned, checkpoint will be all(on success) or nothing(on failure)
+    */
+  def delta: Option[Delta] = None
+  def metrics: Metrics
+  def outRecords: Long
+}
+
 /**
   * Writer flushes stream buffer into the sink
   * @tparam D specific to the reading source's checkpoint, writer can oprtionally return delta for partial commit to checkpoint
   * @tparam Meta meta data of the read operation, used to construct checkpoint delta and metrics
   */
-trait Writer[B <: BufferedData, C <: Checkpoint[D, C], D, Meta] extends Module {
+trait Writer[B <: BufferedData, C <: Checkpoint[D, C], D, Meta <: WriterMeta[D]] extends Module {
   def start(): Unit = {}
 
   def close(): Unit = {}
@@ -28,26 +39,17 @@ trait Writer[B <: BufferedData, C <: Checkpoint[D, C], D, Meta] extends Module {
     *         In case of Kafka Spark RDD, local buffering is simply a matter of manipulating the Kafka OffsetRanges since everything is lazy
     *         The detailed metrics should also be reflected in the writer's implementation
     */
-  def write(data: B, lastCheckpoint: C, inTime: Long): Meta
+  def write(data: B, lastCheckpoint: C, inTime: Long, inDelta: D): Meta
 
-  def getMetrics(meta: Meta): Seq[Map[Any, Any]]
 
-  /**
-    *
-    * @param meta
-    * @return optionally return delta for partial checkpoint
-    *         If none is returned, checkpoint will be all(on success) or nothing(on failure)
-    */
-  def getDelta(meta: Meta): Option[D] = None
-
-  final def execute(data: B, lastCheckpoint: C, inTime: Long): Option[D] = {
+  final def execute(data: B, lastCheckpoint: C, inTime: Long, inDelta: D): (Option[D], Long) = {
     phaseStarted(Phase.Write)
-    Try(write(data, lastCheckpoint, inTime))
+    Try(write(data, lastCheckpoint, inTime, inDelta))
     match {
       case Success(meta) =>
-        updateMetrics(getMetrics(meta))
+        updateMetrics(meta.metrics)
         phaseCompleted(Phase.Write)
-        getDelta(meta)
+        (meta.delta, meta.outRecords)
       case Failure(f) => throw f
     }
   }

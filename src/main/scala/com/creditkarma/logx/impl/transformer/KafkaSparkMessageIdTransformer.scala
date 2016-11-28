@@ -3,6 +3,7 @@ package com.creditkarma.logx.impl.transformer
 import com.creditkarma.logx.base.Transformer
 import com.creditkarma.logx.impl.streambuffer.SparkRDD
 import org.apache.kafka.clients.consumer.ConsumerRecord
+import org.apache.kafka.common.TopicPartition
 import org.apache.spark.streaming.kafka010.HasOffsetRanges
 
 import scala.util.{Failure, Success, Try}
@@ -10,12 +11,13 @@ import scala.util.{Failure, Success, Try}
 /**
   * This combination of Ids guarantees uniqueness within a Kafka cluster instance.
   * For safety, a Kafka cluster instance Id can be appended later
-  * @param topic
-  * @param partition
+  * @param topicPartition
   * @param offset
   */
-case class KafkaMessageId(topic: String, partition: Int, offset: Long)
-case class KafkaMessageWithId[K, V](key: K, value: V, kmId: KafkaMessageId)
+case class KafkaMessageId(topicPartition: TopicPartition, offset: Long)
+case class KafkaMessageWithId[K, V](key: K, value: V, kmId: KafkaMessageId){
+  def offset: Long = kmId.offset
+}
 
 class KafkaSparkMessageIdTransformer[K, V]
   extends Transformer[SparkRDD[ConsumerRecord[K, V]], SparkRDD[KafkaMessageWithId[K, V]]] {
@@ -36,7 +38,7 @@ class KafkaSparkMessageIdTransformer[K, V]
           consumerRecords.zipWithIndex.map {
             case (cr: ConsumerRecord[K, V], messageIndex: Int) =>
               val osr = offsetRangeByIndex(partitionIndex)
-              KafkaMessageWithId(cr.key(), cr.value(), KafkaMessageId(osr.topic, osr.partition, osr.fromOffset + messageIndex))
+              KafkaMessageWithId(cr.key(), cr.value(), KafkaMessageId(osr.topicPartition, osr.fromOffset + messageIndex))
           }
       }
     )

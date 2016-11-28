@@ -39,8 +39,11 @@ object LogInfoInstrumentor extends Instrumentor with LazyLog {
     info(s"Cycle=$cycleId, Module=${module.getClass.getSimpleName}(type=${module.moduleType}), status=${status}")
   }
 
-  override def updateMetrics(module: Module, metrics: Seq[Map[Any, Any]]): Unit = {
-    info(s"Cycle=$cycleId, Module=${module.getClass.getSimpleName}(type=${module.moduleType}), metrics=$metrics")
+  override def updateMetrics(module: Module, metrics: Metrics): Unit = {
+    info(s"Cycle=$cycleId, Module=${module.getClass.getSimpleName}(type=${module.moduleType}), metrics=${
+      metrics.metrics.map{
+        m => s"[d=${m.dimensions},f=${m.fields}]"
+      }.mkString(",")}")
   }
 
   override def phaseStarted(phase: Phase.Value): Unit = {

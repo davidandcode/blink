@@ -23,20 +23,28 @@ final class LogXCore[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta
     writer.registerInstrumentor(instrumentor)
     checkpointService.registerInstrumentor(instrumentor)
   }
+  
+  private val DefaultTickTime = 1000L
+  var tickTime: Long = DefaultTickTime
 
-  private val DefaultPollingInterval = 1000L
-
-
-  private def loadCheckpointAndThen(): Unit = {
+  /**
+    *
+    * @return whether any data is flushed in this cycle,
+    *         if true, it's likely there are more data ready to be pushed, although there can be quite a few scenarios
+    *         A simple solution is to immediately run anothe cycle without waiting for the polling interval.
+    */
+  private def loadCheckpointAndThen(): Boolean = {
     Try(checkpointService.executeLoad()) match {
       case Success(lastCheckpoint) =>
         updateStatus(new StatusOK(s"got last checkpoint ${lastCheckpoint}"))
         readAndThen(lastCheckpoint)
-      case Failure(f) => updateStatus(new StatusError(f, "checkpoint load failure"))
+      case Failure(f) =>
+        updateStatus(new StatusError(f, "checkpoint load failure"))
+        false
     }
   }
 
-  private def readAndThen(lastCheckpoint: C): Unit = {
+  private def readAndThen(lastCheckpoint: C): Boolean = {
     Try(reader.execute(lastCheckpoint)) match {
       case Success((inData, inDelta, flush, inTime)) =>
         if(flush) {
@@ -45,22 +53,27 @@ final class LogXCore[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta
         }
         else{
           updateStatus(new StatusOK("not enough to flush"))
+          false
         }
-      case Failure(f) => updateStatus(new StatusError(f, "read failure"))
+      case Failure(f) =>
+        updateStatus(new StatusError(f, "read failure"))
+        false
     }
   }
 
-  private def transformAndThen(lastCheckpoint: C, inTime: Long, inDelta: Delta, inData: I): Unit = {
+  private def transformAndThen(lastCheckpoint: C, inTime: Long, inDelta: Delta, inData: I): Boolean = {
     Try(transformer.execute(inData)) match {
       case Success(outData) =>
         writeAndThen(lastCheckpoint, inTime, inDelta, outData)
-      case Failure(f) => updateStatus(new StatusError(f, "transform failure"))
+      case Failure(f) =>
+        updateStatus(new StatusError(f, "transform failure"))
+        false
     }
   }
 
-  private def writeAndThen(lastCheckpoint: C, inTime: Long, inDelta: Delta, outData: O): Unit = {
-    Try(writer.execute(outData, lastCheckpoint, inTime)) match {
-      case Success(outDelta) =>
+  private def writeAndThen(lastCheckpoint: C, inTime: Long, inDelta: Delta, outData: O): Boolean = {
+    Try(writer.execute(outData, lastCheckpoint, inTime, inDelta)) match {
+      case Success((outDelta, outRecords)) =>
         updateStatus(new StatusOK("ready to checkpoint"))
         commitCheckpoint(
           lastCheckpoint
@@ -68,8 +81,11 @@ final class LogXCore[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta
               outDelta.getOrElse(inDelta), inTime
             )
         )
+        outRecords > 0
       case Failure(f)=>
         updateStatus(new StatusError(f, "write failure"))
+        //throw f
+        false
     }
   }
 
@@ -82,23 +98,28 @@ final class LogXCore[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta
     }
   }
 
-  def runOneCycle(): Unit = {
+  def runOneCycle(): Boolean = {
     cycleStarted()
-    loadCheckpointAndThen()
+    val dataFlushed = loadCheckpointAndThen()
     cycleCompleted()
+    dataFlushed
   }
 
-  def start(pollingInterVal: Long = DefaultPollingInterval): Unit = {
-    Try(reader.start())
-    match {
+  /**
+    * Stay in an infinite loop
+    */
+  def start(): Unit = {
+    Try(reader.start()) match {
       case Success(_) =>
-        Try(writer.start())
-        match {
+        Try(writer.start()) match {
           case Success(_) =>
             scala.sys.addShutdownHook(close)
             while (true) {
-              runOneCycle()
-              Thread.sleep(pollingInterVal)
+              while(runOneCycle()){
+                updateStatus(new StatusOK(s"run cycle immediately after data push"))
+              }
+              updateStatus(new StatusOK(s"No data pushed, wait for ${tickTime} ms"))
+              Thread.sleep(tickTime)
             }
           case Failure(f) => throw new Exception(s"Failed to start writer ${writer}", f)
         }

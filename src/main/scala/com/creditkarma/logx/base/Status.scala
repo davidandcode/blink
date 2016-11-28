@@ -1,5 +1,7 @@
 package com.creditkarma.logx.base
 
+import org.spark_project.guava.base.Throwables
+
 /**
   * Created by yongjia.wang on 11/16/16.
   */
@@ -10,14 +12,14 @@ trait Status {
   override def toString: String = s"$statusCode($message)"
 }
 
-class StatusOK (msg: String) extends Status {
+class StatusOK (msg: =>String) extends Status {
   override val statusCode = StatusCode.OK
   override def message: String = msg
 }
 
-class StatusError(val error: Throwable, val msg: String = "") extends Status {
+class StatusError(val error: Throwable, msg: =>String = "") extends Status {
   val statusCode = StatusCode.ERROR
-  override def message: String = s"$msg\n${error.getMessage}\n${error.getStackTraceString}"
+  override def message: String = s"$msg\n${Throwables.getStackTraceAsString(error)}"
 }
 
 object StatusCode extends Enumeration {
