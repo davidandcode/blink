@@ -15,6 +15,15 @@ final class LogXCore[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta
   checkpointService: CheckpointService[C]
 ) extends Module {
 
+  /**
+    * this should be a globally unique name for identification purposes,
+    * such as avoid conflicts of multiple Portal instances that share global resources such as checkpoint.
+    * another scenario is for monitoring the entire Portal network, each portals must have a unique identifier
+    * The name can be programmatically generated based on various strategies such as using the source/sink details.
+    * Regardless how it is generated, it must be provided to the constructor.
+    */
+  checkpointService.logXCoreName = appName
+
   override def moduleType: ModuleType.Value = ModuleType.Core
   override def registerInstrumentor(instrumentor: Instrumentor): Unit = {
     super.registerInstrumentor(instrumentor)

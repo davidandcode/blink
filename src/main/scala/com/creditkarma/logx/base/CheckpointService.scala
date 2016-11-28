@@ -8,6 +8,7 @@ import scala.util.{Failure, Success, Try}
 trait CheckpointService[C <: Checkpoint[_ , C]] extends Module {
   def commitCheckpoint(cp: C): Unit
   def lastCheckpoint(): C
+  var logXCoreName: String = null
 
   final def executeCommit(cp: C): Unit = {
     phaseStarted(Phase.CheckpointCommit)
