@@ -10,7 +10,7 @@ trait ReadMeta[D] {
   def shouldFlush: Boolean
 }
 
-trait Reader[B <: BufferedData, C <: Checkpoint[D, C], D, M <: ReadMeta[D]] extends Module {
+trait Reader[B <: BufferedData, C <: Checkpoint[D, C], D, M <: ReadMeta[D]] extends CoreModule {
   override def moduleType: ModuleType.Value = ModuleType.Reader
 
   def start(): Unit = {}

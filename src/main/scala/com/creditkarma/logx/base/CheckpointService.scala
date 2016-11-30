@@ -5,10 +5,9 @@ import scala.util.{Failure, Success, Try}
 /**
   * Created by yongjia.wang on 11/16/16.
   */
-trait CheckpointService[C <: Checkpoint[_ , C]] extends Module {
+trait CheckpointService[C <: Checkpoint[_ , C]] extends CoreModule {
   def commitCheckpoint(cp: C): Unit
   def lastCheckpoint(): C
-  var logXCoreName: String = null
 
   final def executeCommit(cp: C): Unit = {
     phaseStarted(Phase.CheckpointCommit)

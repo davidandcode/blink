@@ -18,7 +18,7 @@ trait WriterMeta[Delta] {
   * @tparam D specific to the reading source's checkpoint, writer can oprtionally return delta for partial commit to checkpoint
   * @tparam Meta meta data of the read operation, used to construct checkpoint delta and metrics
   */
-trait Writer[B <: BufferedData, C <: Checkpoint[D, C], D, Meta <: WriterMeta[D]] extends Module {
+trait Writer[B <: BufferedData, C <: Checkpoint[D, C], D, Meta <: WriterMeta[D]] extends CoreModule {
   def start(): Unit = {}
 
   def close(): Unit = {}

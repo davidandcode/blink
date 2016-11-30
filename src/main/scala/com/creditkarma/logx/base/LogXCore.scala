@@ -2,10 +2,9 @@ package com.creditkarma.logx.base
 
 import scala.util.{Failure, Success, Try}
 
-/**
-  * Created by yongjia.wang on 11/16/16.
-  */
-
+//TODO
+// It should be able to support forced flush mode
+// Force reader flush remaining data regardless of size, and confirm the reader delta and writer delta are the same
 final class LogXCore[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta, C], Delta]
 (
   val appName: String,
@@ -13,7 +12,7 @@ final class LogXCore[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta
   transformer: Transformer[I, O],
   writer: Writer[O, C, Delta, _],
   checkpointService: CheckpointService[C]
-) extends Module {
+) extends CoreModule {
 
   /**
     * this should be a globally unique name for identification purposes,
@@ -22,7 +21,11 @@ final class LogXCore[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta
     * The name can be programmatically generated based on various strategies such as using the source/sink details.
     * Regardless how it is generated, it must be provided to the constructor.
     */
-  checkpointService.logXCoreName = appName
+  this._portalId = Some(appName)
+  reader._portalId = Some(appName)
+  transformer._portalId = Some(appName)
+  writer._portalId = Some(appName)
+  checkpointService._portalId = Some(appName)
 
   override def moduleType: ModuleType.Value = ModuleType.Core
   override def registerInstrumentor(instrumentor: Instrumentor): Unit = {
@@ -57,7 +60,7 @@ final class LogXCore[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta
     Try(reader.execute(lastCheckpoint)) match {
       case Success((inData, inDelta, flush, inTime)) =>
         if(flush) {
-          updateStatus(new StatusOK("ready to flush"))
+          updateStatus(new StatusOK(s"ready to flush"))
           transformAndThen(lastCheckpoint, inTime, inDelta, inData)
         }
         else{
@@ -108,9 +111,9 @@ final class LogXCore[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta
   }
 
   def runOneCycle(): Boolean = {
-    cycleStarted()
+    cycleStarted(this)
     val dataFlushed = loadCheckpointAndThen()
-    cycleCompleted()
+    cycleCompleted(this)
     dataFlushed
   }
 
@@ -124,9 +127,7 @@ final class LogXCore[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta
           case Success(_) =>
             scala.sys.addShutdownHook(close)
             while (true) {
-              while(runOneCycle()){
-                updateStatus(new StatusOK(s"run cycle immediately after data push"))
-              }
+              runUntilNoPush()
               updateStatus(new StatusOK(s"No data pushed, wait for ${tickTime} ms"))
               Thread.sleep(tickTime)
             }
@@ -134,6 +135,13 @@ final class LogXCore[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta
         }
       case Failure(f) => throw new Exception(s"Failed to start reader ${reader}", f)
     }
+  }
+
+  def runUntilNoPush(): Unit = {
+    while(runOneCycle()){
+      updateStatus(new StatusOK(s"run cycle immediately after data push"))
+    }
+    updateStatus(new StatusOK(s"No data pushed, stop tight loop"))
   }
 
   def close(): Unit = {

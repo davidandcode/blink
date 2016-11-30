@@ -12,15 +12,15 @@ trait Instrumentor {
 
   def name: String
 
-  def cycleStarted(): Unit
+  def cycleStarted(module: CoreModule): Unit
 
-  def cycleCompleted(): Unit
+  def cycleCompleted(module: CoreModule): Unit
 
-  def phaseStarted(phase: Phase.Value): Unit
+  def phaseStarted(module: CoreModule, phase: Phase.Value): Unit
 
-  def phaseCompleted(phase: Phase.Value): Unit
+  def phaseCompleted(module: CoreModule, phase: Phase.Value): Unit
 
-  def updateStatus(module: Module, status: Status): Unit
+  def updateStatus(module: CoreModule, status: Status): Unit
 
   /**
     *
@@ -29,6 +29,6 @@ trait Instrumentor {
     *                The modules(reader, writer etc.) implementations can chose their specific taxonomy for metrics representation,
     *                and the corresponding instrumentor implementation should understand them.
     */
-  def updateMetrics(module: Module, metrics: Metrics): Unit
+  def updateMetrics(module: CoreModule, metrics: Metrics): Unit
 
 }

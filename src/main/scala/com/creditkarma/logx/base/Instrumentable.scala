@@ -22,27 +22,27 @@ trait Instrumentable {
     }
   }
 
-  def updateStatus(module: Module, status: Status): Unit = {
+  def updateStatus(module: CoreModule, status: Status): Unit = {
     instrumentors.foreach(_.updateStatus(module, status))
   }
 
-  def updateMetrics(module: Module, metrics: Metrics): Unit = {
+  def updateMetrics(module: CoreModule, metrics: Metrics): Unit = {
     instrumentors.foreach(_.updateMetrics(module, metrics))
   }
 
-  def cycleStarted(): Unit = {
-    instrumentors.foreach(_.cycleStarted)
+  def cycleStarted(module: CoreModule): Unit = {
+    instrumentors.foreach(_.cycleStarted(module))
   }
 
-  def cycleCompleted(): Unit = {
-    instrumentors.foreach(_.cycleCompleted())
+  def cycleCompleted(module: CoreModule): Unit = {
+    instrumentors.foreach(_.cycleCompleted(module))
   }
 
-  def phaseStarted(phase: Phase.Value): Unit = {
-    instrumentors.foreach(_.phaseStarted(phase))
+  def phaseStarted(module: CoreModule, phase: Phase.Value): Unit = {
+    instrumentors.foreach(_.phaseStarted(module, phase))
   }
 
-  def phaseCompleted(phase: Phase.Value): Unit = {
-    instrumentors.foreach(_.phaseCompleted(phase))
+  def phaseCompleted(module: CoreModule, phase: Phase.Value): Unit = {
+    instrumentors.foreach(_.phaseCompleted(module, phase))
   }
 }

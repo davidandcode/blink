@@ -7,7 +7,7 @@ import com.creditkarma.logx.base.CheckpointService
 import com.creditkarma.logx.impl.checkpoint.KafkaCheckpoint
 import com.creditkarma.logx.impl.streamreader.KafkaSparkRDDReader
 import com.creditkarma.logx.impl.transformer.KafkaMessageWithId
-import com.creditkarma.logx.impl.writer.{KafkaPartitionedWriter, KafkaSparkRDDPartitionedWriter, WriterClientMeta}
+import com.creditkarma.logx.impl.writer.{KafkaPartitionWriter, KafkaSparkRDDPartitionedWriter, WriterClientMeta}
 import com.creditkarma.logx.instrumentation.LogInfoInstrumentor
 import info.batey.kafka.unit.KafkaUnit
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
@@ -23,22 +23,26 @@ import scala.collection.JavaConverters._
   * Created by yongjia.wang on 11/28/16.
   */
 object KafkaPartitionedOutputTest {
-  val testWriter = new KafkaPartitionedWriter[String, String, String]{
+  val testWriter = new KafkaPartitionWriter[String, String, String]{
     override def useSubPartition: Boolean = true
     // won't be called if useSubPartition is false
     override def getSubPartition(payload: String): String = ""
-    override def write(topicPartition: TopicPartition, subPartition: Option[String], data: Iterable[KafkaMessageWithId[String, String]]): WriterClientMeta = {
+    override def write(topicPartition: TopicPartition, subPartition: Option[String], data: Iterator[KafkaMessageWithId[String, String]]): WriterClientMeta = {
       // make sure message offset is in order here
-      val itr = data.iterator
+      val itr = data
       var currentMessage = itr.next()
+      var records = 1
+      var bytes = currentMessage.value.size
       while(itr.hasNext){
         val nextMessage = itr.next()
+        records += 1
+        bytes += nextMessage.value.size
         assert(currentMessage.kmId.offset < nextMessage.kmId.offset)
         assert(currentMessage.kmId.topicPartition == nextMessage.kmId.topicPartition)
         assert(getSubPartition(currentMessage.value) == getSubPartition(nextMessage.value))
         currentMessage = nextMessage
       }
-      WriterClientMeta(data.size, data.map(_.value.size).sum, true)
+      WriterClientMeta(records, bytes, true)
     }
   }
   val collectorWriter = new KafkaSparkRDDPartitionedWriter[String, String, String](testWriter)
@@ -68,7 +72,7 @@ object KafkaPartitionedOutputTest {
       // Also if it returns IPV6, Spark won't work with it
     )
 
-    val testLogX = Utils.createKafkaSparkFlow(
+    val testLogX = Utils.createKafkaSparkPortal(
       "test-logX", kafkaParams, collectorWriter, new InMemoryKafkaCheckpointService(), flushInterval = 2000, flushSize = 2)
 
 
@@ -83,6 +87,9 @@ object KafkaPartitionedOutputTest {
     TestKafkaServer.sendNextMessage(10)
     testLogX.runOneCycle()
     //println(collectedData)
+
+    TestKafkaServer.sendNextMessage(12)
+    testLogX.runUntilNoPush()
 
     //TestKafkaServer.sendNextMessage(21)
     //testLogX.start()

@@ -26,35 +26,35 @@ object LogInfoInstrumentor extends Instrumentor with LazyLog {
   override def name: String = this.getClass.getName
 
   var cycleId: Long = 0
-  override def cycleStarted(): Unit = {
-    info(s"Cycle $cycleId started")
+  override def cycleStarted(module: CoreModule): Unit = {
+    info(s"${module.portalId} Cycle $cycleId started")
   }
 
-  override def cycleCompleted(): Unit = {
-    info(s"Cycle $cycleId completed")
+  override def cycleCompleted(module: CoreModule): Unit = {
+    info(s"${module.portalId} Cycle $cycleId completed")
     cycleId += 1
   }
 
-  override def updateStatus(module: Module, status: Status): Unit = {
-    info(s"Cycle=$cycleId, Module=${module.getClass.getSimpleName}(type=${module.moduleType}), status=${status}")
+  override def updateStatus(module: CoreModule, status: Status): Unit = {
+    info(s"${module.portalId} Cycle=$cycleId, Module=${module.getClass.getSimpleName}(type=${module.moduleType}), status=${status}")
     if(status.statusCode == StatusCode.Unexpected){
       fatal("Unexpected situation is encountered, exit now and must have it fixed, to avoid unrecoverable damages")
       System.exit(0)
     }
   }
 
-  override def updateMetrics(module: Module, metrics: Metrics): Unit = {
-    info(s"Cycle=$cycleId, Module=${module.getClass.getSimpleName}(type=${module.moduleType}), metrics=${
+  override def updateMetrics(module: CoreModule, metrics: Metrics): Unit = {
+    info(s"${module.portalId} Cycle=$cycleId, Module=${module.getClass.getSimpleName}(type=${module.moduleType}), metrics=${
       metrics.metrics.map{
         m => s"[d=${m.dimensions},f=${m.fields}]"
       }.mkString(",")}")
   }
 
-  override def phaseStarted(phase: Phase.Value): Unit = {
-    info(s"Cycle=$cycleId, ${phase} phase started")
+  override def phaseStarted(module: CoreModule, phase: Phase.Value): Unit = {
+    info(s"${module.portalId} Cycle=$cycleId, ${phase} phase started")
   }
 
-  override def phaseCompleted(phase: Phase.Value): Unit = {
-    info(s"Cycle=$cycleId, ${phase} phase completed")
+  override def phaseCompleted(module: CoreModule, phase: Phase.Value): Unit = {
+    info(s"${module.portalId} Cycle=$cycleId, ${phase} phase completed")
   }
 }

@@ -146,7 +146,7 @@ object KafkaTest1 {
 
 
     val collectedData: ListBuffer[String] = ListBuffer.empty
-    val testLogX = Utils.createKafkaSparkFlow(
+    val testLogX = Utils.createKafkaSparkPortal(
       "test-logX", kafkaParams, new KafkaSparkRDDMessageCollector(collectedData), new InMemoryKafkaCheckpointService(), 1000, flushSize = 1)
 
 
