@@ -208,7 +208,7 @@ class KafkaSparkRDDPartitionedWriter[K, V, P]
 (partitionedWriter: KafkaPartitionWriter[K, V, P])
   extends Writer[SparkRDD[KafkaMessageWithId[K, V]], KafkaCheckpoint, Seq[OffsetRange], KafkaOutputMeta[P]] with Serializable {
   override def write(data: SparkRDD[KafkaMessageWithId[K, V]], lastCheckpoint: KafkaCheckpoint, inTime: Long, inDelta: Seq[OffsetRange]): KafkaOutputMeta[P] = {
-    partitionedWriter._portalId = _portalId
+    partitionedWriter.registerPortal(portalId)
     val topicPartitionMeta: Seq[KafkaTopicPartitionMeta[P]] =
     if(partitionedWriter.useSubPartition){
       data.rdd

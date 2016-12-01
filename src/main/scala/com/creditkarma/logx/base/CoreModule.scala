@@ -22,7 +22,15 @@ trait CoreModule extends Instrumentable {
     updateMetrics(this, metrics)
   }
 
-  var _portalId: Option[String] = None
+  private var _portalId: Option[String] = None
+
+  def registerPortal(id: String): Unit = {
+    updateStatus(new StatusOK(s"Registering ${moduleType} with portal ${id}"))
+    _portalId match{
+      case Some(otherId) => throw new Exception(s"${moduleType} already registered with another portal ${otherId}")
+      case None => _portalId = Some(id)
+    }
+  }
   def portalId: String = {
     _portalId match{
       case Some(id) => id

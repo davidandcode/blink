@@ -21,11 +21,11 @@ final class LogXCore[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta
     * The name can be programmatically generated based on various strategies such as using the source/sink details.
     * Regardless how it is generated, it must be provided to the constructor.
     */
-  this._portalId = Some(appName)
-  reader._portalId = Some(appName)
-  transformer._portalId = Some(appName)
-  writer._portalId = Some(appName)
-  checkpointService._portalId = Some(appName)
+  this.registerPortal(appName)
+  reader.registerPortal(appName)
+  transformer.registerPortal(appName)
+  writer.registerPortal(appName)
+  checkpointService.registerPortal(appName)
 
   override def moduleType: ModuleType.Value = ModuleType.Core
   override def registerInstrumentor(instrumentor: Instrumentor): Unit = {
