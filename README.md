@@ -11,6 +11,6 @@ The framework also provides the structure to implement robust checkpointing and 
 
 To run a simple demo from command line (need to install sbt first):
 
-`sbt run`
+`sbt test`
 
 It should print traces to the console.
