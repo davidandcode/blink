@@ -7,7 +7,7 @@ import scala.collection.JavaConverters._
 /**
   * Created by yongjia.wang on 11/17/16.
   */
-object LogInfoInstrumentor extends Instrumentor with LazyLog {
+class LogInfoInstrumentor extends Instrumentor with LazyLog {
 
   def printLogToConsole(): Unit = {
     val appenders = LogManager.getRootLogger.getAllAppenders.asScala
@@ -57,4 +57,8 @@ object LogInfoInstrumentor extends Instrumentor with LazyLog {
   override def phaseCompleted(module: CoreModule, phase: Phase.Value): Unit = {
     info(s"${module.portalId} Cycle=$cycleId, ${phase} phase completed")
   }
+}
+
+object LogInfoInstrumentor {
+  def apply(): LogInfoInstrumentor = new LogInfoInstrumentor()
 }

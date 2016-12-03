@@ -12,7 +12,7 @@ final class LogXCore[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta
   transformer: Transformer[I, O],
   writer: Writer[O, C, Delta, _],
   checkpointService: CheckpointService[C]
-) extends CoreModule {
+) extends CoreModule with PortalController{
 
   /**
     * this should be a globally unique name for identification purposes,
@@ -137,7 +137,7 @@ final class LogXCore[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta
     }
   }
 
-  def runUntilNoPush(): Unit = {
+  private def runUntilNoPush(): Unit = {
     while(runOneCycle()){
       updateStatus(new StatusOK(s"run cycle immediately after data push"))
     }
@@ -148,5 +148,26 @@ final class LogXCore[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta
     updateStatus(new StatusOK("Shutting down"))
     reader.close()
     writer.close()
+  }
+
+  override def runForever(): Unit = {
+    start()
+  }
+
+  override def runTilCompletion(): Unit = {
+    runUntilNoPush()
+    //TODO must then flush the remaining data from input source
+  }
+
+  override def fromEarliest(): Unit = {
+    val checkpoint = reader.checkpointFromEarliest()
+    updateStatus(new StatusOK(s"rewind checkpoint to earliest: cp=[${checkpoint}]"))
+    checkpointService.commitCheckpoint(checkpoint)
+  }
+
+  override def fromNow(): Unit = {
+    val checkpoint = reader.checkpointFromNow()
+    updateStatus(new StatusOK(s"mark current position: cp=[${checkpoint}]"))
+    checkpointService.commitCheckpoint(checkpoint)
   }
 }

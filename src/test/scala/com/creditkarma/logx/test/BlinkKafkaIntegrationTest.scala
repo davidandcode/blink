@@ -81,13 +81,14 @@ trait BlinkKafkaIntegrationTest extends FeatureSpec with BeforeAndAfterAll with 
       val portal = getOrCreatePortal(portalId, flushSize = 50)
 
       And("the log instrumentor is registered to show the trace, but otherwise doesn't matter")
-      portal.registerInstrumentor(LogInfoInstrumentor) // this is just to observe trace
+      portal.registerInstrumentor(LogInfoInstrumentor()) // this is just to observe trace
 
       When("running the portal until no data is pushed")
-      portal.runUntilNoPush()
+      portal.runTilCompletion()
 
       Then("the writer threads should collectively observe the same data")
       assert(getWriter.collect.get(portalId).get.sortBy(_.toString) == allMessages.sortBy(_.toString))
+      portal.close()
     }
 
     scenario("Two portals from Kafka with independent checkpoint") {
@@ -98,15 +99,39 @@ trait BlinkKafkaIntegrationTest extends FeatureSpec with BeforeAndAfterAll with 
       val portal2 = getOrCreatePortal(id2, flushSize = 1)
 
       And("the log instrumentor is registered to show the trace, but otherwise doesn't matter")
-      portal1.registerInstrumentor(LogInfoInstrumentor) // this is just to observe trace
-      portal2.registerInstrumentor(LogInfoInstrumentor) // this is just to observe trace
+      portal1.registerInstrumentor(LogInfoInstrumentor()) // this is just to observe trace
+      portal2.registerInstrumentor(LogInfoInstrumentor()) // this is just to observe trace
 
-      portal1.runUntilNoPush()
-      portal2.runUntilNoPush()
+      portal1.runTilCompletion()
+      portal2.runTilCompletion()
 
       Then("the writer threads should collectively observe the same data for each portal")
       assert(getWriter.collect.get(id1).get.sortBy(_.toString) == allMessages.sortBy(_.toString))
       assert(getWriter.collect.get(id2).get.sortBy(_.toString) == allMessages.sortBy(_.toString))
+      portal1.close()
+      portal2.close()
+    }
+
+    scenario("Portal must be able to reset position") {
+      Given("a new portal")
+      val id = "new-portal"
+      val portal = getOrCreatePortal(id, flushSize = 1)
+      And("the log instrumentor is registered to show the trace, but otherwise doesn't matter")
+      portal.registerInstrumentor(LogInfoInstrumentor()) // this is just to observe trace
+      When("starting from now")
+      portal.fromNow()
+      And("running the portal until completion")
+      portal.runTilCompletion()
+      Then("nothing should have been written")
+      assert(getWriter.collect.getOrElse(id, Seq.empty).isEmpty)
+
+      When("starting from earliest")
+      portal.fromEarliest()
+      And("running the portal until completion")
+      portal.runTilCompletion()
+      Then("the writer threads should collectively observe the same data")
+      assert(getWriter.collect.get(id).get.sortBy(_.toString) == allMessages.sortBy(_.toString))
+      portal.close()
     }
   }
 }

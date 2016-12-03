@@ -19,4 +19,6 @@ trait CollectibleTestWriter[Key, Value, Partition] {
     * @return
     */
   def collect: Map[String, Seq[KafkaMessageWithId[Key, Value]]]
+
+  def clearAll()
 }

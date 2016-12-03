@@ -62,4 +62,6 @@ object SimpleCollectibleWriter extends CollectibleTestWriter[String, String, Str
     * @return
     */
   override def collect: Map[String, Seq[KafkaMessageWithId[String, String]]] = globalCollector.toMap
+
+  override def clearAll(): Unit = globalCollector.clear()
 }

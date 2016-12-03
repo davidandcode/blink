@@ -223,15 +223,15 @@ class KafkaSparkRDDReader[K, V](val kafkaParams: Map[String, Object])
 
   override def close(): Unit = {
     _kafkaConsumer match {
-      case Some(kc) => kc.close()
+      case Some(kc) =>
+        kc.close()
+        _kafkaConsumer = None
       case None =>
         updateStatus(new StatusOK(s"Closing kafka consumer in reader $this"))
     }
   }
 
-  override def fetchData(checkpoint: KafkaCheckpoint): (SparkRDD[ConsumerRecord[K, V]], KafkaSparkReaderMeta) = {
-
-    val readTime = System.currentTimeMillis()
+  private def fetchTopicPartitions(): Seq[TopicPartition] = {
     val topicPartitions: Seq[TopicPartition] = kafkaConsumer.listTopics().asScala.filter {
       case (topic: String, _) => topicFilter(topic)
     }.flatMap(_._2.asScala).map {
@@ -239,6 +239,12 @@ class KafkaSparkRDDReader[K, V](val kafkaParams: Map[String, Object])
     }.toSeq
 
     updateStatus(this, new StatusOK(s"Got topic partitions ${topicPartitions}"))
+    topicPartitions
+  }
+  override def fetchData(checkpoint: KafkaCheckpoint): (SparkRDD[ConsumerRecord[K, V]], KafkaSparkReaderMeta) = {
+
+    val readTime = System.currentTimeMillis()
+    val topicPartitions: Seq[TopicPartition] = fetchTopicPartitions()
 
     kafkaConsumer.assign(topicPartitions.asJava) // initialize empty partition offset to 0, otherwise it'll through Exception
     kafkaConsumer.seekToBeginning(topicPartitions.asJava)
@@ -286,4 +292,21 @@ class KafkaSparkRDDReader[K, V](val kafkaParams: Map[String, Object])
     topic.indexOf("__consumer_offsets") == -1
   }
 
+  override def checkpointFromEarliest(): KafkaCheckpoint = {
+    new KafkaCheckpoint()
+  }
+
+  override def checkpointFromNow(): KafkaCheckpoint = {
+    val readTime = System.currentTimeMillis()
+    val topicPartitions: Seq[TopicPartition] = fetchTopicPartitions()
+    kafkaConsumer.assign(topicPartitions.asJava)
+    kafkaConsumer.seekToEnd(topicPartitions.asJava)
+    val currentOffsetRangesMark =
+    topicPartitions.map{
+        tp =>
+          val endPosition = kafkaConsumer.position(tp)
+          OffsetRange(tp, endPosition, endPosition)
+      }
+    new KafkaCheckpoint().mergeDelta(currentOffsetRangesMark, readTime)
+  }
 }

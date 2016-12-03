@@ -28,6 +28,18 @@ trait Reader[B <: BufferedData, C <: Checkpoint[D, C], D, M <: ReadMeta[D]] exte
     */
   def fetchData(checkpoint: C): (B, M)
 
+  /**
+    * Reader must correctly interprete checkpoint
+    * @return a checkpoint that will make the reader get all available data from source, this is for back filling
+    */
+  def checkpointFromEarliest(): C
+
+  /**
+    *
+    * @return a checkpoint that will make reader ignore existing data from the source and start from now
+    */
+  def checkpointFromNow(): C
+
   final def execute(checkpoint: C): (B, D, Boolean, Long) = {
     phaseStarted(Phase.Read)
     Try(fetchData(checkpoint))
