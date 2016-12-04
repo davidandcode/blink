@@ -30,21 +30,22 @@ object SimpleCollectibleWriter extends CollectibleTestWriter[String, String, Str
 
     override def write(topicPartition: TopicPartition, subPartition: Option[String], data: Iterator[KafkaMessageWithId[String, String]]): WriterClientMeta = {
       // make sure message offset is in order here
-      val itr = data
-      var currentMessage = itr.next()
-      var records = 1
-      var bytes = currentMessage.value.size
-      addMessageToClobalCollector(currentMessage)
-
-      while(itr.hasNext){
-        val nextMessage = itr.next()
+      var records = 0
+      var bytes = 0
+      var previousOffset: Option[Long] = None
+      while(data.hasNext){
+        val message = data.next()
         records += 1
-        bytes += nextMessage.value.size
-        addMessageToClobalCollector(nextMessage)
-        assert(currentMessage.kmId.offset < nextMessage.kmId.offset)
-        assert(currentMessage.kmId.topicPartition == nextMessage.kmId.topicPartition)
-        assert(getSubPartition(currentMessage.value) == getSubPartition(nextMessage.value))
-        currentMessage = nextMessage
+        bytes += message.value.size
+        addMessageToClobalCollector(message)
+        assert(previousOffset.isEmpty || previousOffset.get < message.kmId.offset)
+        assert(message.kmId.topicPartition == topicPartition)
+        subPartition match {
+          case Some(sp) =>
+            assert(getSubPartition(message.value) == sp)
+          case None =>
+        }
+        previousOffset = Option(message.kmId.offset)
       }
       WriterClientMeta(records, bytes, true)
     }

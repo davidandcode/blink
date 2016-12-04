@@ -6,7 +6,7 @@ import com.creditkarma.logx.base.StatusOK
 /**
   * All the client modules must be serializable
   */
-trait ClientModule extends Serializable {
+trait SparkWorkerModule extends Serializable {
   def moduleType: ClientModuleType.Value
 
   def portalId: String = {

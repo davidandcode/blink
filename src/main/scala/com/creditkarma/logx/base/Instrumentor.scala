@@ -2,7 +2,7 @@ package com.creditkarma.logx.base
 
 /**
   * This stateless event update interface exposes LogX specific status and metrics
-  * [[LogXCore]] already has a lot of the calls inserted
+  * [[Portal]] already has a lot of the calls inserted
   * Implementations of the modules (reader, writer, etc.) are responsible to report their own custom metrics
   * Implementations of the instrumentor are responsible to interpret and process the metrics
   * It's important the instrumentor itself consumes little resource and all the methods should return immediately (no blocking IO etc.)

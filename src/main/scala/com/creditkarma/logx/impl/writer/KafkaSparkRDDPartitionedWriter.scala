@@ -1,7 +1,8 @@
 package com.creditkarma.logx.impl.writer
 
+import com.creditkarma.logx.Serializer
 import com.creditkarma.logx.base._
-import com.creditkarma.logx.client.{ClientModule, ClientModuleType}
+import com.creditkarma.logx.client.{SparkWorkerModule, ClientModuleType}
 import com.creditkarma.logx.impl.checkpoint.KafkaCheckpoint
 import com.creditkarma.logx.impl.streambuffer.SparkRDD
 import com.creditkarma.logx.impl.streamreader.{KafkaMetricDimension, KafkaMetricField}
@@ -57,8 +58,8 @@ case class KafkaTopicPartitionMeta[P](topicPartition: TopicPartition) extends Me
   def completedPartitions: Long = _completedPartitions
   def totalPartitions: Long = _partitions
   def allPartitionsCompleted: Boolean = _partitions == _completedPartitions
-  def minOffset = _minOffset
-  def maxOffset = _maxOffset
+  def minOffset: Long = _minOffset
+  def maxOffset: Long = _maxOffset
 
   private def dim = KafkaMetricDimension
   private def field = KafkaMetricField
@@ -84,7 +85,7 @@ class KafkaOutputMeta[P](meta: Seq[KafkaTopicPartitionMeta[P]], readerDelta: Seq
     }
   }
   /**
-    * Only successful records count. Zero may indicate the sink has serious issues, and the next cycle will wait for the [[com.creditkarma.logx.base.LogXCore.tickTime]]
+    * Only successful records count. Zero may indicate the sink has serious issues, and the next cycle will wait for the [[com.creditkarma.logx.base.Portal.tickTime]]
     * Positive number indicates the entire flow is functioning and it will attempt the next cycle immediately.
     * @return
     */
@@ -154,7 +155,7 @@ class KafkaStreamWithOffsetTracking[K, V](data: Iterator[KafkaMessageWithId[K, V
 
 }
 
-trait KafkaPartitionWriter[K, V, P] extends ClientModule {
+trait KafkaPartitionWriter[K, V, P] extends SparkWorkerModule {
   def useSubPartition: Boolean
   def getSubPartition(payload: V): P
   /**
@@ -206,14 +207,17 @@ case class KafkaOutputPartitionInfo[P](topicPartition: TopicPartition, contentPa
   */
 class KafkaSparkRDDPartitionedWriter[K, V, P]
 (partitionedWriter: KafkaPartitionWriter[K, V, P])
-  extends Writer[SparkRDD[KafkaMessageWithId[K, V]], KafkaCheckpoint, Seq[OffsetRange], KafkaOutputMeta[P]] with Serializable {
+  extends Writer[SparkRDD[KafkaMessageWithId[K, V]], KafkaCheckpoint, Seq[OffsetRange], KafkaOutputMeta[P]] {
+
   override def write(data: SparkRDD[KafkaMessageWithId[K, V]], lastCheckpoint: KafkaCheckpoint, inTime: Long, inDelta: Seq[OffsetRange]): KafkaOutputMeta[P] = {
+    // Using local variable will detach the class from serialzied task's closure and avoid unnecessary serializations.
+    val localPartitionedWriter = partitionedWriter
     partitionedWriter.registerPortal(portalId)
     val topicPartitionMeta: Seq[KafkaTopicPartitionMeta[P]] =
     if(partitionedWriter.useSubPartition){
       data.rdd
         .groupBy{
-          message => (message.topicPartition, partitionedWriter.getSubPartition(message.value))
+          message => (message.topicPartition, localPartitionedWriter.getSubPartition(message.value))
         }.map{ // first write each atomic partition and collect meta
         case ((topicPartition, subPartition), messages) =>
           /**
@@ -222,7 +226,7 @@ class KafkaSparkRDDPartitionedWriter[K, V, P]
             */
           val partitionInfo = KafkaOutputPartitionInfo(topicPartition, Some(subPartition))
           Try(
-            partitionedWriter
+            localPartitionedWriter
               .writeAndExtractOffset(topicPartition, Some(subPartition), messages.iterator)) match {
             case Success((clientMeta, minOffset, maxOffset)) => KafkaOutputPartitionMeta(partitionInfo, clientMeta, minOffset, maxOffset)
             case Failure(f) => KafkaOutputPartitionMeta(partitionInfo, WriterClientMeta(0, 0, false, f.getMessage), -1, -1)
@@ -246,7 +250,7 @@ class KafkaSparkRDDPartitionedWriter[K, V, P]
           val partitionInfo = KafkaOutputPartitionInfo[P](topicPartition, None)
           val outputMeta =
             Try(
-              partitionedWriter
+              localPartitionedWriter
                 .writeAndExtractOffset(topicPartition, None, Iterator(firstMessage) ++ messageIterator))match {
               case Success((clientMeta, minOffset, maxOffset)) => KafkaOutputPartitionMeta(partitionInfo, clientMeta, minOffset, maxOffset)
               case Failure(f) => KafkaOutputPartitionMeta(partitionInfo, WriterClientMeta(0, 0, false, f.getMessage), -1, -1)

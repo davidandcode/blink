@@ -29,7 +29,7 @@ trait Reader[B <: BufferedData, C <: Checkpoint[D, C], D, M <: ReadMeta[D]] exte
   def fetchData(checkpoint: C): (B, M)
 
   /**
-    * Reader must correctly interprete checkpoint
+    * Reader must correctly interpret checkpoint
     * @return a checkpoint that will make the reader get all available data from source, this is for back filling
     */
   def checkpointFromEarliest(): C

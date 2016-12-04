@@ -4,11 +4,11 @@ import com.creditkarma.logx.base.CheckpointService
 import com.creditkarma.logx.impl.checkpoint.KafkaCheckpoint
 
 class InMemoryKafkaCheckpointService extends CheckpointService[KafkaCheckpoint]{
-  var lastCheckPoint: KafkaCheckpoint = new KafkaCheckpoint()
+  var lastCheckPoint: Option[KafkaCheckpoint] = None
   override def commitCheckpoint(cp: KafkaCheckpoint): Unit = {
-    lastCheckPoint = cp
+    lastCheckPoint = Option(cp)
   }
-  override def lastCheckpoint(): KafkaCheckpoint = {
+  override def lastCheckpoint(): Option[KafkaCheckpoint] = {
     lastCheckPoint
   }
 }

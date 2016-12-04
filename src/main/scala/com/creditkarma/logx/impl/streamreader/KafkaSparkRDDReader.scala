@@ -87,8 +87,9 @@ class TopicPartitionMeta
     * For example, if a job starts as back-filling all previous data, the first cycle's timeLag is zero,
     * and the actual lag is reflected by the remaining messages.
     * The cycles following the first back-filling cycle will also have very low time latency,
-    * since the cycles run back-to-back without waiting for the [[LogXCore.tickTime]] until there is no more messages to be pushed.
-    * By design, the timeLag should never go significantly above [[maxInterval]] + [[LogXCore.tickTime]]
+    * since the cycles run back-to-back without waiting for the [[Portal.tickTime]] until there is no more messages to be pushed.
+    * By design, the timeLag should never go significantly above [[maxInterval]] + [[Portal.tickTime]]
+ *
     * @return Time between last checkpoint's cycle read time and the current cycle read time.
     *         Zero is there is no previous checkpoint.
     */

@@ -7,7 +7,7 @@ import scala.util.{Failure, Success, Try}
   */
 trait CheckpointService[C <: Checkpoint[_ , C]] extends CoreModule {
   def commitCheckpoint(cp: C): Unit
-  def lastCheckpoint(): C
+  def lastCheckpoint(): Option[C]
 
   final def executeCommit(cp: C): Unit = {
     phaseStarted(Phase.CheckpointCommit)
@@ -25,7 +25,10 @@ trait CheckpointService[C <: Checkpoint[_ , C]] extends CoreModule {
     match {
       case Success(cp) =>
         phaseCompleted(Phase.CheckpointLoad)
-        cp
+        if(cp.isEmpty){
+          throw new Exception(s"No checkpoint loaded")
+        }
+        cp.get
       case Failure(f) => throw f
     }
   }

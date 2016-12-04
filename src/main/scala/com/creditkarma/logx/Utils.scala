@@ -1,5 +1,7 @@
 package com.creditkarma.logx
 
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, ObjectInputStream, ObjectOutputStream}
+
 import com.creditkarma.logx.base._
 import com.creditkarma.logx.impl.checkpoint.KafkaCheckpoint
 import com.creditkarma.logx.impl.streambuffer.SparkRDD
@@ -14,6 +16,7 @@ import org.apache.spark.streaming.kafka010.OffsetRange
   */
 object Utils {
 
+  val DefaultTickTime = 1000L
   def createKafkaSparkPortal[K, V]
   (name: String,
    kafkaParams: Map[String, Object],
@@ -21,16 +24,16 @@ object Utils {
    checkpointService: CheckpointService[KafkaCheckpoint],
    flushInterval: Long,
    flushSize: Long
-  ): LogXCore[SparkRDD[ConsumerRecord[K, V]], SparkRDD[KafkaMessageWithId[K, V]], KafkaCheckpoint, Seq[OffsetRange]] = {
+  ): Portal[SparkRDD[ConsumerRecord[K, V]], SparkRDD[KafkaMessageWithId[K, V]], KafkaCheckpoint, Seq[OffsetRange]] = {
     val reader = new KafkaSparkRDDReader[K, V](kafkaParams)
     reader.setMaxFetchRecordsPerPartition(flushSize)
     reader.setFlushInterval(flushInterval)
-    new LogXCore(
-      appName = name,
+    new Portal(
+      id = name, tickTime = DefaultTickTime,
       reader = reader,
       transformer = new KafkaSparkMessageIdTransformer[K, V](),
       writer = writer,
-      checkpointService = checkpointService
+      stateTracker = checkpointService
     )
   }
 
@@ -41,16 +44,37 @@ object Utils {
    checkpointService: CheckpointService[KafkaCheckpoint],
    flushInterval: Long,
    flushSize: Long
-  ): LogXCore[SparkRDD[ConsumerRecord[K, V]], SparkRDD[KafkaMessageWithId[K, V]], KafkaCheckpoint, Seq[OffsetRange]] = {
+  ): Portal[SparkRDD[ConsumerRecord[K, V]], SparkRDD[KafkaMessageWithId[K, V]], KafkaCheckpoint, Seq[OffsetRange]] = {
     val reader = new KafkaSparkRDDReader[K, V](kafkaParams)
     reader.setMaxFetchRecordsPerPartition(flushSize)
     reader.setFlushInterval(flushInterval)
-    new LogXCore(
-      appName = name,
+    new Portal(
+      id = name, tickTime = DefaultTickTime,
       reader = reader,
       transformer = new KafkaSparkMessageIdTransformer[K, V](),
       writer = new KafkaSparkRDDPartitionedWriter(singleThreadPartitionWriter),
-      checkpointService = checkpointService
+      stateTracker = checkpointService
     )
+  }
+}
+
+object Serializer {
+
+  def serialize[T <: Serializable](obj: T): Array[Byte] = {
+    val byteOut = new ByteArrayOutputStream()
+    val objOut = new ObjectOutputStream(byteOut)
+    objOut.writeObject(obj)
+    objOut.close()
+    byteOut.close()
+    byteOut.toByteArray
+  }
+
+  def deserialize[T <: Serializable](bytes: Array[Byte]): T = {
+    val byteIn = new ByteArrayInputStream(bytes)
+    val objIn = new ObjectInputStream(byteIn)
+    val obj = objIn.readObject().asInstanceOf[T]
+    byteIn.close()
+    objIn.close()
+    obj
   }
 }
