@@ -121,7 +121,7 @@ final class Portal[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta, 
     }
   }
 
-  def runOneCycle(): Boolean = {
+  private def runOneCycle(): Boolean = {
     cycleStarted(this)
     val dataFlushed = loadCheckpointAndThen()
     cycleCompleted(this)
@@ -142,7 +142,6 @@ final class Portal[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta, 
     }
     updateStatus(new StatusOK(s"No data pushed, stop tight loop"))
   }
-
 
   private[this] var tunnelOpened = false
   private def closeTunnel(): Unit = this.synchronized {
@@ -187,7 +186,7 @@ final class Portal[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta, 
 
   //TODO
   //Global portal network state update
-  override def openPortal(operation: OperationlMode.Value, time: TimeMode.Value): Unit = {
+  override def openPortal(operation: OperationMode.Value, time: TimeMode.Value): Unit = {
     updateStatus(new StatusOK(s"opening portal with operation=${operation}, and time=${time}"))
     // first open the funnel. TODO: may also need to test the tunnel (importer, exporter, transformer) before starting the loop, in case of misconfiguration
     openTunnel()
@@ -215,19 +214,19 @@ final class Portal[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta, 
           case Some(checkpoint) =>
             updateStatus(new StatusOK(s"use last checkpoint position: cp=[${checkpoint}]"))
           case None =>
-            throw new Exception(s"no checkpoint found for portal $portalId")
+            throw new Exception(s"no checkpoint found")
         }
     }
     // start portal operation based on operation mode, also close portal accordingly
     operation match {
-      case OperationlMode.Forever =>
+      case OperationMode.Forever =>
         updateStatus(new StatusOK(s"portal operates forever, but is at the mercy of the ruler of universe"))
         scala.sys.addShutdownHook({
           updateStatus(new StatusOK(s"portal is permanent, but destroyed by the ruler of universe"))
           closePortal()
         })
         runLoop()
-      case OperationlMode.ImporterDepletion =>
+      case OperationMode.ImporterDepletion =>
         updateStatus(new StatusOK(s"portal operation started, and will close automatically when input is depleted"))
         runUntilNoPush()
         //TODO must then flush the remaining data from input source
@@ -236,11 +235,14 @@ final class Portal[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta, 
   }
 }
 
+/**
+  * This is the public API for launching a portal
+  */
 sealed trait PortalController {
-  def openPortal(operation: OperationlMode.Value, time: TimeMode.Value): Unit
+  def openPortal(operation: OperationMode.Value, time: TimeMode.Value): Unit
 }
 
-object OperationlMode extends Enumeration {
+object OperationMode extends Enumeration {
   val Forever, ImporterDepletion = Value
 }
 

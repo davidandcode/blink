@@ -1,6 +1,6 @@
 package com.creditkarma.logx.test
 import com.creditkarma.logx.Utils
-import com.creditkarma.logx.base.{CheckpointService, Portal, OperationlMode, TimeMode}
+import com.creditkarma.logx.base.{CheckpointService, Portal, OperationMode, TimeMode}
 import com.creditkarma.logx.impl.checkpoint.KafkaCheckpoint
 import com.creditkarma.logx.impl.streambuffer.SparkRDD
 import com.creditkarma.logx.impl.transformer.KafkaMessageWithId
@@ -82,7 +82,7 @@ trait BlinkKafkaIntegrationTest extends FeatureSpec with BeforeAndAfterAll with 
 
       When("running the portal until no data is pushed")
       //portal.runTilCompletion()
-      portal.openPortal(OperationlMode.ImporterDepletion, TimeMode.Origin)
+      portal.openPortal(OperationMode.ImporterDepletion, TimeMode.Origin)
 
       Then("the writer threads should collectively observe the same data")
       assert(getWriter.collect.get(portalId).get.sortBy(_.toString) == allMessages.sortBy(_.toString))
@@ -99,8 +99,8 @@ trait BlinkKafkaIntegrationTest extends FeatureSpec with BeforeAndAfterAll with 
       portal1.registerInstrumentor(LogInfoInstrumentor()) // this is just to observe trace
       portal2.registerInstrumentor(LogInfoInstrumentor()) // this is just to observe trace
 
-      portal1.openPortal(OperationlMode.ImporterDepletion, TimeMode.Origin)
-      portal2.openPortal(OperationlMode.ImporterDepletion, TimeMode.Origin)
+      portal1.openPortal(OperationMode.ImporterDepletion, TimeMode.Origin)
+      portal2.openPortal(OperationMode.ImporterDepletion, TimeMode.Origin)
 
       Then("the writer threads should collectively observe the same data for each portal")
       assert(getWriter.collect.get(id1).get.sortBy(_.toString) == allMessages.sortBy(_.toString))
@@ -115,13 +115,13 @@ trait BlinkKafkaIntegrationTest extends FeatureSpec with BeforeAndAfterAll with 
       portal.registerInstrumentor(LogInfoInstrumentor()) // this is just to observe trace
       When("starting from now")
       And("running the portal until completion")
-      portal.openPortal(OperationlMode.ImporterDepletion, TimeMode.Now)
+      portal.openPortal(OperationMode.ImporterDepletion, TimeMode.Now)
       Then("nothing should have been written")
       assert(getWriter.collect.getOrElse(id, Seq.empty).isEmpty)
 
       When("starting from earliest")
       And("running the portal until completion")
-      portal.openPortal(OperationlMode.ImporterDepletion, TimeMode.Origin)
+      portal.openPortal(OperationMode.ImporterDepletion, TimeMode.Origin)
       Then("the writer threads should collectively observe the same data")
       assert(getWriter.collect.get(id).get.sortBy(_.toString) == allMessages.sortBy(_.toString))
     }
