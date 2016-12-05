@@ -28,7 +28,7 @@ object SimpleCollectibleWriter extends CollectibleTestWriter[String, String, Str
     // won't be called if useSubPartition is false
     override def getSubPartition(payload: String): String = ""
 
-    override def write(topicPartition: TopicPartition, subPartition: Option[String], data: Iterator[KafkaMessageWithId[String, String]]): WriterClientMeta = {
+    override def write(topicPartition: TopicPartition, firstOffset: Long, subPartition: Option[String], data: Iterator[KafkaMessageWithId[String, String]]): WriterClientMeta = {
       // make sure message offset is in order here
       var records = 0
       var bytes = 0
@@ -38,8 +38,10 @@ object SimpleCollectibleWriter extends CollectibleTestWriter[String, String, Str
         records += 1
         bytes += message.value.size
         addMessageToClobalCollector(message)
-        assert(previousOffset.isEmpty || previousOffset.get < message.kmId.offset)
+        assert(previousOffset.isEmpty || previousOffset.get < message.kmId.offset) // this is not neccesarily true after groupBy
+        assert(firstOffset <= message.kmId.offset)
         assert(message.kmId.topicPartition == topicPartition)
+        assert(message.batchFirstOffset == firstOffset)
         subPartition match {
           case Some(sp) =>
             assert(getSubPartition(message.value) == sp)

@@ -85,7 +85,7 @@ trait BlinkKafkaIntegrationTest extends FeatureSpec with BeforeAndAfterAll with 
       portal.openPortal(OperationMode.ImporterDepletion, TimeMode.Origin)
 
       Then("the writer threads should collectively observe the same data")
-      assert(getWriter.collect.get(portalId).get.sortBy(_.toString) == allMessages.sortBy(_.toString))
+      assert(getWriter.collect.get(portalId).get.map(_.toString).sorted == allMessages.map(_.toString).sorted)
     }
 
     scenario("Two portals from Kafka with independent checkpoint") {
@@ -103,8 +103,8 @@ trait BlinkKafkaIntegrationTest extends FeatureSpec with BeforeAndAfterAll with 
       portal2.openPortal(OperationMode.ImporterDepletion, TimeMode.Origin)
 
       Then("the writer threads should collectively observe the same data for each portal")
-      assert(getWriter.collect.get(id1).get.sortBy(_.toString) == allMessages.sortBy(_.toString))
-      assert(getWriter.collect.get(id2).get.sortBy(_.toString) == allMessages.sortBy(_.toString))
+      assert(getWriter.collect.get(id1).get.map(_.toString).sorted == allMessages.map(_.toString).sorted)
+      assert(getWriter.collect.get(id2).get.map(_.toString).sorted  == allMessages.map(_.toString).sorted )
     }
 
     scenario("Portal must be able to reset position") {
@@ -123,7 +123,7 @@ trait BlinkKafkaIntegrationTest extends FeatureSpec with BeforeAndAfterAll with 
       And("running the portal until completion")
       portal.openPortal(OperationMode.ImporterDepletion, TimeMode.Origin)
       Then("the writer threads should collectively observe the same data")
-      assert(getWriter.collect.get(id).get.sortBy(_.toString) == allMessages.sortBy(_.toString))
+      assert(getWriter.collect.get(id).get.map(_.toString).sorted == allMessages.map(_.toString).sorted)
     }
   }
 }

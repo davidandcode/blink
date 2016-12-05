@@ -15,9 +15,10 @@ import scala.util.{Failure, Success, Try}
   * @param offset
   */
 case class KafkaMessageId(topicPartition: TopicPartition, offset: Long)
-case class KafkaMessageWithId[K, V](key: K, value: V, kmId: KafkaMessageId){
+case class KafkaMessageWithId[K, V](key: K, value: V, kmId: KafkaMessageId, batchFirstOffset: Long){
   def offset: Long = kmId.offset
   def topicPartition: TopicPartition = kmId.topicPartition
+  override def toString: String = (key, value, kmId).toString()
 }
 
 class KafkaSparkMessageIdTransformer[K, V]
@@ -39,7 +40,7 @@ class KafkaSparkMessageIdTransformer[K, V]
           consumerRecords.zipWithIndex.map {
             case (cr: ConsumerRecord[K, V], messageIndex: Int) =>
               val osr = offsetRangeByIndex(partitionIndex)
-              KafkaMessageWithId(cr.key(), cr.value(), KafkaMessageId(osr.topicPartition, osr.fromOffset + messageIndex))
+              KafkaMessageWithId(cr.key(), cr.value(), KafkaMessageId(osr.topicPartition, osr.fromOffset + messageIndex), osr.fromOffset)
           }
       }
     )
