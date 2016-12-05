@@ -40,14 +40,17 @@ trait Reader[B <: BufferedData, C <: Checkpoint[D, C], D, M <: ReadMeta[D]] exte
     */
   def checkpointFromNow(): C
 
-  final def execute(checkpoint: C): (B, D, Boolean, Long) = {
+  final def execute(sharedState: ImporterAccessor[C, D]): B = {
     phaseStarted(Phase.Read)
-    Try(fetchData(checkpoint))
+    Try(fetchData(sharedState.lastCheckpoint))
     match {
       case Success((data, meta)) =>
         updateMetrics(meta.metrics)
         phaseCompleted(Phase.Read)
-        (data, meta.delta, meta.shouldFlush, meta.readTime)
+        sharedState.setImporterDelta(meta.delta)
+        sharedState.setImporterTime(meta.readTime)
+        sharedState.setImporterFlush(meta.shouldFlush)
+        data
       case Failure(f) => throw f
     }
   }

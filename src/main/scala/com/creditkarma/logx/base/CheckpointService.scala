@@ -19,7 +19,7 @@ trait CheckpointService[C <: Checkpoint[_ , C]] extends CoreModule {
     }
   }
 
-  final def executeLoad(): C = {
+  final def executeLoad(sharedState: StateTrackerAccessor[C, _]): C = {
     phaseStarted(Phase.CheckpointLoad)
     Try(lastCheckpoint())
     match {
@@ -28,6 +28,7 @@ trait CheckpointService[C <: Checkpoint[_ , C]] extends CoreModule {
         if(cp.isEmpty){
           throw new Exception(s"No checkpoint loaded")
         }
+        sharedState.setLastCheckpoint(cp.get)
         cp.get
       case Failure(f) => throw f
     }

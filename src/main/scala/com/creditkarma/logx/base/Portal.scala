@@ -56,47 +56,48 @@ final class Portal[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta, 
     *         if true, it's likely there are more data ready to be pushed, although there can be quite a few scenarios
     *         A simple solution is to immediately run anothe cycle without waiting for the polling interval.
     */
-  private def loadCheckpointAndThen(): Boolean = {
-    Try(stateTracker.executeLoad()) match {
+  private def loadCheckpointAndThen(sharedState: ModuleSharedState[C, Delta]): Unit = {
+    Try(stateTracker.executeLoad(sharedState.asInstanceOf[StateTrackerAccessor[C, Delta]])) match {
       case Success(lastCheckpoint) =>
         updateStatus(new StatusOK(s"got last checkpoint ${lastCheckpoint}"))
-        readAndThen(lastCheckpoint)
+        readAndThen(sharedState)
       case Failure(f) =>
         updateStatus(new StatusError(f, "checkpoint load failure"))
-        false
     }
   }
 
-  private def readAndThen(lastCheckpoint: C): Boolean = {
-    Try(reader.execute(lastCheckpoint)) match {
-      case Success((inData, inDelta, flush, inTime)) =>
-        if(flush) {
+  private def readAndThen(sharedState: ModuleSharedState[C, Delta]): Unit = {
+    Try(reader.execute(sharedState.asInstanceOf[ImporterAccessor[C, Delta]])) match {
+      case Success(inData) =>
+        if(sharedState.importerFlush) {
           updateStatus(new StatusOK(s"ready to flush"))
-          transformAndThen(lastCheckpoint, inTime, inDelta, inData)
+          transformAndThen(inData, sharedState)
         }
         else{
           updateStatus(new StatusOK("not enough to flush"))
-          false
         }
       case Failure(f) =>
         updateStatus(new StatusError(f, "read failure"))
-        false
     }
   }
 
-  private def transformAndThen(lastCheckpoint: C, inTime: Long, inDelta: Delta, inData: I): Boolean = {
+  private def transformAndThen(inData: I, sharedState: ModuleSharedState[C, Delta]): Unit = {
     Try(transformer.execute(inData)) match {
       case Success(outData) =>
-        writeAndThen(lastCheckpoint, inTime, inDelta, outData)
+        writeAndCommitCheckpoint(outData, sharedState)
       case Failure(f) =>
         updateStatus(new StatusError(f, "transform failure"))
-        false
     }
   }
 
-  private def writeAndThen(lastCheckpoint: C, inTime: Long, inDelta: Delta, outData: O): Boolean = {
-    Try(writer.execute(outData, lastCheckpoint, inTime, inDelta)) match {
-      case Success((outDelta, outRecords)) =>
+  private def writeAndCommitCheckpoint(outData: O, sharedState: ModuleSharedState[C, Delta]): Unit = {
+    def lastCheckpoint = sharedState.lastCheckpoint
+    def inTime = sharedState.importerTime
+    def inDelta = sharedState.importerDelta
+    Try(writer.execute(outData, sharedState.asInstanceOf[ExporterAccessor[C, Delta]])) match {
+      case Success(_) =>
+        def outDelta = sharedState.exporterDelta
+        def outRecords = sharedState.exporterRecords
         updateStatus(new StatusOK("ready to checkpoint"))
         commitCheckpoint(
           lastCheckpoint
@@ -107,8 +108,6 @@ final class Portal[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta, 
         outRecords > 0
       case Failure(f)=>
         updateStatus(new StatusError(f, "write failure"))
-        //throw f
-        false
     }
   }
 
@@ -123,9 +122,12 @@ final class Portal[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta, 
 
   private def runOneCycle(): Boolean = {
     cycleStarted(this)
-    val dataFlushed = loadCheckpointAndThen()
+    // initialized local mutable state for this cycle
+    val sharedState = new ModuleSharedState[C, Delta]
+    loadCheckpointAndThen(sharedState)
     cycleCompleted(this)
-    dataFlushed
+    // look at information from the mutable state to inform higher level control
+    sharedState.exporterRecords > 0
   }
 
   private def runLoop(): Unit = {

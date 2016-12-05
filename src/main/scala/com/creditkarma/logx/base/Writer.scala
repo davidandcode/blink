@@ -42,14 +42,18 @@ trait Writer[B <: BufferedData, C <: Checkpoint[D, C], D, Meta <: WriterMeta[D]]
   def write(data: B, lastCheckpoint: C, inTime: Long, inDelta: D): Meta
 
 
-  final def execute(data: B, lastCheckpoint: C, inTime: Long, inDelta: D): (Option[D], Long) = {
+  final def execute(data: B, sharedState: ExporterAccessor[C, D]): Unit = {
+    def lastCheckpoint = sharedState.lastCheckpoint
+    def inTime = sharedState.importerTime
+    def inDelta = sharedState.importerDelta
     phaseStarted(Phase.Write)
     Try(write(data, lastCheckpoint, inTime, inDelta))
     match {
       case Success(meta) =>
         updateMetrics(meta.metrics)
         phaseCompleted(Phase.Write)
-        (meta.delta, meta.outRecords)
+        sharedState.setExporterRecords(meta.outRecords)
+        sharedState.setExporterDelta(meta.delta)
       case Failure(f) => throw f
     }
   }
