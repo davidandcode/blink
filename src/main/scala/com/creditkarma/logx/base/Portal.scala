@@ -166,7 +166,7 @@ final class Portal[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta, 
         case Success(_) =>
           Try(writer.start()) match {
             case Success(_) =>
-              updateStatus(new StatusOK(s"tunnel is opened"))
+              updateStatus(new StatusOK(s"tunnel is open"))
               tunnelOpened = true
             case Failure(f) => throw new Exception(s"Failed to open exporter ${writer}", f)
           }

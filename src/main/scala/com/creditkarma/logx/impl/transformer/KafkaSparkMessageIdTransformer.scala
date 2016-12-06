@@ -37,9 +37,9 @@ class KafkaSparkMessageIdTransformer[K, V]
     new SparkRDD(
       input.rdd.mapPartitionsWithIndex {
         case (partitionIndex: Int, consumerRecords: Iterator[ConsumerRecord[K, V]]) =>
+          val osr = offsetRangeByIndex(partitionIndex)
           consumerRecords.zipWithIndex.map {
             case (cr: ConsumerRecord[K, V], messageIndex: Int) =>
-              val osr = offsetRangeByIndex(partitionIndex)
               KafkaMessageWithId(cr.key(), cr.value(), KafkaMessageId(osr.topicPartition, osr.fromOffset + messageIndex), osr.fromOffset)
           }
       }

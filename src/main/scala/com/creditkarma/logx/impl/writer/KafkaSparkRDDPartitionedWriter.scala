@@ -39,6 +39,23 @@ case class KafkaTopicPartitionMeta[P](topicPartition: TopicPartition) extends Me
     }
 
   }
+  def aggregate(meta: KafkaOutputPartitionMeta2[P]): Unit = {
+    _partitions += 1
+    _clientConfirmedRecords += meta.clientMeta.records
+    _clientConfirmedBytes += meta.clientMeta.bytes
+    if(meta.clientMeta.complete){
+      _completedPartitions += 1
+      _completedBytes += meta.clientMeta.bytes
+      _completedRecords += meta.clientMeta.records
+    }
+    if(_minOffset == -1 || meta.minOffset < _minOffset){
+      _minOffset = meta.minOffset
+    }
+    if(_maxOffset == -1 || meta.maxOffset > _maxOffset){
+      _maxOffset = meta.maxOffset
+    }
+
+  }
   private var _minOffset: Long = -1
   private var _maxOffset: Long = -1
   private var _partitions: Long = 0
@@ -209,7 +226,7 @@ class KafkaSparkRDDPartitionedWriter[K, V, P]
 (partitionedWriter: KafkaPartitionWriter[K, V, P])
   extends Writer[SparkRDD[KafkaMessageWithId[K, V]], KafkaCheckpoint, Seq[OffsetRange], KafkaOutputMeta[P]] {
 
-  override def write(data: SparkRDD[KafkaMessageWithId[K, V]], lastCheckpoint: KafkaCheckpoint, inTime: Long, inDelta: Seq[OffsetRange]): KafkaOutputMeta[P] = {
+  override def write(data: SparkRDD[KafkaMessageWithId[K, V]], sharedState: ExporterAccessor[KafkaCheckpoint, Seq[OffsetRange]]): KafkaOutputMeta[P] = {
     // Using local variable will detach the class from serialzied task's closure and avoid unnecessary serializations.
     val localPartitionedWriter = partitionedWriter
     partitionedWriter.registerPortal(portalId)
@@ -261,7 +278,7 @@ class KafkaSparkRDDPartitionedWriter[K, V, P]
       }.collect()
     }
 
-    val outputMeta = new KafkaOutputMeta(topicPartitionMeta, inDelta)
+    val outputMeta = new KafkaOutputMeta(topicPartitionMeta, sharedState.importerDelta)
     if(outputMeta.inconsistentOffsetRanges.nonEmpty){
       updateStatus(new StatusUnexpected(new Exception("Input and output offset ranges does not match"),
         s"Input and output offset ranges does not match ${outputMeta.inconsistentOffsetRanges.map{

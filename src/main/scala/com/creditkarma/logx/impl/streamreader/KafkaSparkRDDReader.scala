@@ -89,7 +89,7 @@ class TopicPartitionMeta
     * The cycles following the first back-filling cycle will also have very low time latency,
     * since the cycles run back-to-back without waiting for the [[Portal.tickTime]] until there is no more messages to be pushed.
     * By design, the timeLag should never go significantly above [[maxInterval]] + [[Portal.tickTime]]
- *
+    *
     * @return Time between last checkpoint's cycle read time and the current cycle read time.
     *         Zero is there is no previous checkpoint.
     */
@@ -225,10 +225,10 @@ class KafkaSparkRDDReader[K, V](val kafkaParams: Map[String, Object])
   override def close(): Unit = {
     _kafkaConsumer match {
       case Some(kc) =>
+        updateStatus(new StatusOK(s"Closing kafka consumer in reader $this"))
         kc.close()
         _kafkaConsumer = None
       case None =>
-        updateStatus(new StatusOK(s"Closing kafka consumer in reader $this"))
     }
   }
 

@@ -2,11 +2,11 @@ package com.creditkarma.logx
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, ObjectInputStream, ObjectOutputStream}
 
-import com.creditkarma.logx.base._
+import com.creditkarma.logx.base.{BufferedData, Checkpoint, _}
 import com.creditkarma.logx.impl.checkpoint.KafkaCheckpoint
 import com.creditkarma.logx.impl.streambuffer.SparkRDD
 import com.creditkarma.logx.impl.streamreader.KafkaSparkRDDReader
-import com.creditkarma.logx.impl.transformer.{KafkaMessageWithId, KafkaSparkMessageIdTransformer}
+import com.creditkarma.logx.impl.transformer.{IdentityTransformer, KafkaMessageWithId, KafkaSparkMessageIdTransformer}
 import com.creditkarma.logx.impl.writer.{KafkaPartitionWriter, KafkaSparkRDDPartitionedWriter}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.spark.streaming.kafka010.OffsetRange
@@ -17,6 +17,7 @@ import org.apache.spark.streaming.kafka010.OffsetRange
 object Utils {
 
   val DefaultTickTime = 1000L
+
   def createKafkaSparkPortal[K, V]
   (name: String,
    kafkaParams: Map[String, Object],
@@ -56,7 +57,19 @@ object Utils {
       stateTracker = checkpointService
     )
   }
+
+  def createPortal[I <: BufferedData, C <: Checkpoint[Delta, C], Delta]
+  (
+    id: String, tickTime: Long,
+    reader: Reader[I, C, Delta, _],
+    writer: Writer[I, C, Delta, _],
+    stateTracker: CheckpointService[C]
+  ): Portal[I, I, C, Delta] = {
+    new Portal(
+      id, tickTime, reader, new IdentityTransformer[I], writer, stateTracker)
+  }
 }
+
 
 object Serializer {
 

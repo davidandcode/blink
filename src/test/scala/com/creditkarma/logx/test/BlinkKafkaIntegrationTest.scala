@@ -1,6 +1,6 @@
 package com.creditkarma.logx.test
-import com.creditkarma.logx.Utils
-import com.creditkarma.logx.base.{CheckpointService, Portal, OperationMode, TimeMode}
+import com.creditkarma.logx.{PortalConstructor, Utils}
+import com.creditkarma.logx.base.{CheckpointService, OperationMode, Portal, TimeMode}
 import com.creditkarma.logx.impl.checkpoint.KafkaCheckpoint
 import com.creditkarma.logx.impl.streambuffer.SparkRDD
 import com.creditkarma.logx.impl.transformer.KafkaMessageWithId
@@ -20,7 +20,8 @@ trait BlinkKafkaIntegrationTest extends FeatureSpec with BeforeAndAfterAll with 
   type Key = String
   type Value = String
   type Partition = String
-  type PortalType = Portal[SparkRDD[ConsumerRecord[Key, Value]], SparkRDD[KafkaMessageWithId[Key, Value]], KafkaCheckpoint, Seq[OffsetRange]]
+  //type PortalType = Portal[SparkRDD[ConsumerRecord[Key, Value]], SparkRDD[KafkaMessageWithId[Key, Value]], KafkaCheckpoint, Seq[OffsetRange]]
+  type PortalType = Portal[SparkRDD[ConsumerRecord[Key, Value]], SparkRDD[ConsumerRecord[Key, Value]], KafkaCheckpoint, Seq[OffsetRange]]
   type WriterType = CollectibleTestWriter[Key, Value, Partition]
 
   def getWriter: WriterType
@@ -30,8 +31,12 @@ trait BlinkKafkaIntegrationTest extends FeatureSpec with BeforeAndAfterAll with 
 
   val defaultFlushInterval = 1000
   def getOrCreatePortal(portalId: String, flushSize: Long, flushInterval: Long = defaultFlushInterval): PortalType = {
-    _kafkaPortals.getOrElseUpdate(portalId, Utils.createKafkaSparkPortalWithSingleThreadedWriter(
-      portalId, kafkaParams, getWriter.writer, getCheckpointService, flushInterval, flushSize))
+    _kafkaPortals.getOrElseUpdate(
+      portalId,
+      //Utils.createKafkaSparkPortalWithSingleThreadedWriter(
+      PortalConstructor.createKafkaSparkPortalWithSingleThreadedWriter(
+      portalId, kafkaParams, getWriter.writer, getCheckpointService, flushInterval, flushSize)
+    )
   }
 
   override def beforeAll(): Unit = {
