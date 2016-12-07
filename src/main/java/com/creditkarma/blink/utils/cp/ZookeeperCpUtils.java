@@ -1,4 +1,4 @@
-package com.creditkarma.blink.utils.gcs;
+package com.creditkarma.blink.utils.cp;
 
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;

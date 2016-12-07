@@ -3,7 +3,7 @@ package com.creditkarma.blink.impl.checkpointservice
 import com.creditkarma.blink.Serializer
 import com.creditkarma.blink.base.{Checkpoint, CheckpointService}
 import com.creditkarma.blink.impl.checkpoint.KafkaCheckpoint
-import com.creditkarma.blink.utils.gcs.ZookeeperCpUtils
+import com.creditkarma.blink.utils.cp.ZookeeperCpUtils
 import org.apache.commons.lang3.SerializationUtils
 import org.apache.spark.streaming.kafka010.OffsetRange
 

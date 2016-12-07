@@ -1,4 +1,4 @@
-package com.creditkarma.blink.utils.gcs;
+package com.creditkarma.blink.utils.cp;
 
 /**
  * Created by shengwei.wang on 11/19/16.
