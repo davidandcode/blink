@@ -20,7 +20,38 @@ class KafkaCheckpoint(val timestampedOffsetRanges: Seq[(OffsetRange, Long)] = Se
     }.toMap
   }
 
-  override def toString: String = timestampedOffsetRanges.mkString(", ")
+  override def toString: String = {
+    if(timestampedOffsetRanges.isEmpty){
+      "KafkaCheckpoint()"
+    }
+    else{
+      val topicInfoMap: Map[String, TopicSummary] =
+        for((topic, topicTsOsr) <- timestampedOffsetRanges.groupBy(_._1.topic))
+          yield{
+            topic -> new TopicSummary(topic, topicTsOsr)
+          }
+      val totalTopics = topicInfoMap.size
+      val totalPartitions = topicInfoMap.values.map(_.partitions).sum
+      val totalRecords = topicInfoMap.values.map(_.lifeTimeRecords).sum
+      val topicSummaries = topicInfoMap.values
+      val topicWithMostParitions = topicSummaries.maxBy(_.partitions)
+      val topicWithRecords = topicSummaries.maxBy(_.lifeTimeRecords)
+      val mostFreshTopic = topicSummaries.maxBy(_.mostFreshPartitionTime)
+      val mostStaleTopic = topicSummaries.minBy(_.mostFreshPartitionTime)
+      val topicTitles = Seq[(String, TopicSummary)](
+        "maxp" -> topicWithMostParitions,
+        "maxr" -> topicWithRecords,
+        "new" -> mostFreshTopic,
+        "old" -> mostStaleTopic
+      )
+      val topicSummaryWithTitles = topicTitles.groupBy(_._2).map{
+        case(topicSummary, titles) =>
+          def titleStr = s"title(${titles.map(_._1).mkString("/")})"
+          s"{$titleStr: $topicSummary}"
+      }
+      s"KafkaCheckpoint(ts=$totalTopics, ps=$totalPartitions, rs=$totalRecords, champions=${topicSummaryWithTitles.mkString(",")})"
+    }
+  }
 
   /**
     *
