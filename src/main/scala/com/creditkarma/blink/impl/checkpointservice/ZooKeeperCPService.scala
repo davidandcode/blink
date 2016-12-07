@@ -1,45 +1,92 @@
 package com.creditkarma.blink.impl.checkpointservice
 
-import com.creditkarma.blink.Serializer
-import com.creditkarma.blink.base.{Checkpoint, CheckpointService}
+
+import java.util.concurrent.CountDownLatch
+
+import com.creditkarma.blink.base.{Checkpoint, CheckpointService, StatusOK}
 import com.creditkarma.blink.impl.checkpoint.KafkaCheckpoint
-import com.creditkarma.blink.utils.gcs.ZookeeperCpUtils
 import org.apache.commons.lang3.SerializationUtils
 import org.apache.spark.streaming.kafka010.OffsetRange
+import org.apache.zookeeper._
 
-import scala.collection.mutable
-import scala.collection.mutable.ListBuffer
+import scala.util.{Failure, Success, Try}
 
 /**
   * Created by shengwei.wang on 11/19/16.
   */
-class ZooKeeperCPService(hostport:String) extends  CheckpointService[KafkaCheckpoint] {
+class ZooKeeperCPService(hostport: String) extends CheckpointService[KafkaCheckpoint] {
 
   private val PREFIX = "LASTTIME"
+  private val timeOut = 3000
+
+  private def zkNodePath = "/" + PREFIX + portalId // portalId is not available at construction time, so must use def not val
+
+  private def zkOpen = {
+    val connected = new CountDownLatch(1)
+    val zookeeper = new ZooKeeper(hostport, timeOut, new Watcher {
+      override def process(event: WatchedEvent): Unit = {
+        connected.countDown()
+        updateStatus(new StatusOK(s"ZooKeeper client connected to $hostport"))
+      }
+    })
+    connected.await()
+    zookeeper
+  }
+
+  private def zkClose(): Unit = {
+    updateStatus(new StatusOK(s"closing ZooKeeper client from $hostport"))
+    _zkClient.foreach(_.close())
+    _zkClient = None
+    updateStatus(new StatusOK(s"ZooKeeper client closed"))
+  }
+
+  private var _zkClient: Option[ZooKeeper] = None
+  // zkClient is always safe to use and won't re-open.
+  private def zkClient: ZooKeeper =
+  _zkClient.getOrElse {
+    _zkClient = Option(zkOpen)
+    _zkClient.get
+  }
+
+  private def saveDataToZK(data: Array[Byte]): Unit = {
+    updateStatus(new StatusOK(s"saving ${data.size} bytes"))
+    if (!nodeExists) {
+      zkClient.create(zkNodePath, data, ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT)
+    }
+    zkClient.setData(zkNodePath, data, -1) // -1 matches any node version
+  }
+
+  private def loadDataFromZK(): Array[Byte] = {
+    val data = zkClient.getData(zkNodePath, false, null)
+    updateStatus(new StatusOK(s"retrieved data: ${data.size} bytes"))
+    data
+  }
+
+  private def nodeExists(): Boolean = {
+    Try(zkClient.exists(zkNodePath, false)) match {
+      case Success(stats) => stats != null
+      case Failure(f) => throw new Exception(s"Failed to query node", f)
+    }
+  }
 
   override def commitCheckpoint(cp: KafkaCheckpoint): Unit = {
-
-    val checkpointTopicName = PREFIX + portalId
-
-    ZookeeperCpUtils.znodeExists("/" + checkpointTopicName,hostport) match {
-      case false =>{ZookeeperCpUtils.create("/" + checkpointTopicName,  SerializationUtils.serialize(cp.timestampedOffsetRanges.toList),hostport)}
-      case true => {ZookeeperCpUtils.update("/" + checkpointTopicName,  SerializationUtils.serialize(cp.timestampedOffsetRanges.toList),hostport)}
-
-    }
-
+    saveDataToZK(SerializationUtils.serialize(cp.timestampedOffsetRanges.toArray))
+    zkClose()
   }
 
   override def lastCheckpoint(): Option[KafkaCheckpoint] = {
-
-    val checkpointTopicName = PREFIX + portalId
-
-    ZookeeperCpUtils.znodeExists("/" + checkpointTopicName ,hostport) match {
-      case false => None
-      case true => Some( new KafkaCheckpoint(SerializationUtils.deserialize(ZookeeperCpUtils.getDataBytes("/" + checkpointTopicName, hostport))))
-     }
-
+    if(nodeExists) {
+      val data = loadDataFromZK
+      zkClose()
+      Option(
+        new KafkaCheckpoint(
+          SerializationUtils.deserialize(data)
+            .asInstanceOf[Array[(OffsetRange, Long)]]))
     }
-
+    else {
+      None
+    }
+  }
 }
 
 
