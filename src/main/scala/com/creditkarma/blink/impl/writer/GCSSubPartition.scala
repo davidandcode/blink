@@ -9,9 +9,7 @@ class GCSSubPartition(
                        day:String,
                        hour:String,
                        minute:String,
-                       second:String,
-                       milli:String,
-                       nano:String
+                       second:String
                      )  extends  Serializable{
 
 
@@ -21,7 +19,4 @@ class GCSSubPartition(
   def getHour = hour
   def getMinute = minute
   def getSecond = second
-  def getMilli = milli
-  def getNano = nano
-
 }

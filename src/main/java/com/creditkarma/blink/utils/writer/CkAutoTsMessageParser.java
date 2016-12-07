@@ -108,7 +108,7 @@ public class CkAutoTsMessageParser  {
 
 
     // this method may change input
-    public long extractTimestampMillis(final String[] messagePayload, final String kafkaTopic) {
+    public long extractTimestampMillis(final String[] messagePayload, final String kafkaTopic) throws ParseException {
         JSONObject jsonObject = (JSONObject) JSONValue.parse(messagePayload[0]);
         long tsColumnVal = 0;
 
@@ -180,7 +180,7 @@ public class CkAutoTsMessageParser  {
      * @param tsString
      * @return
      */
-    public TsParseResult parseAsTsString(String tsString) {
+    public TsParseResult parseAsTsString(String tsString) throws ParseException {
         Date ts = null;
         String year = null;
         String month = null;
@@ -227,6 +227,8 @@ public class CkAutoTsMessageParser  {
                     //if(MessageTimestampParsingErrorLogEnabled)
                         //LOG.warn(String.format("timestamp parsing error: %s with format %s; original: %s", parseableTsStr,
                           //      ParseableTsFormat, tsString));
+
+                    throw e;
                 }
             }
         }
@@ -264,7 +266,7 @@ public class CkAutoTsMessageParser  {
     }
 
 
-    public static void main(String[] args){
+    public static void main(String[] args) throws Exception{
 
         CkAutoTsMessageParser myParser = new CkAutoTsMessageParser("ts",true,"");
 
