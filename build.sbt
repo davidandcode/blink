@@ -18,3 +18,8 @@ libraryDependencies += "org.apache.geode" % "gemfire-joptsimple" % "1.0.0-incuba
 
 testOptions in Test := Seq(Tests.Filter(s => s.endsWith("ZookeeperServiceTest")))
 
+libraryDependencies += "net.minidev" % "json-smart" % "2.2.1"
+
+mainClass in (Compile, run) := Some("com.creditkarma.logx.example.KafkaTest1")
+
+
