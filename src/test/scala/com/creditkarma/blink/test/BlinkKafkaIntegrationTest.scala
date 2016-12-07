@@ -7,6 +7,7 @@ import com.creditkarma.blink.impl.transformer.KafkaMessageWithId
 import com.creditkarma.blink.impl.writer.KafkaSparkRDDPartitionedWriter
 import com.creditkarma.blink.instrumentation.LogInfoInstrumentor
 import org.apache.kafka.clients.consumer.ConsumerRecord
+import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.log4j.{Level, LogManager}
 import org.apache.spark.streaming.kafka010.OffsetRange
 import org.apache.spark.{SparkConf, SparkContext}
@@ -35,7 +36,12 @@ trait BlinkKafkaIntegrationTest extends FeatureSpec with BeforeAndAfterAll with 
       portalId,
       //Utils.createKafkaSparkPortalWithSingleThreadedWriter(
       PortalConstructor.createKafkaSparkPortalWithSingleThreadedWriter(
-      portalId, kafkaParams, getWriter.writer, getCheckpointService, flushInterval, flushSize)
+      portalId, Map[String, Object](
+          "bootstrap.servers" -> s"localhost:${brokerPort}",
+          "key.deserializer" -> classOf[StringDeserializer],
+          "value.deserializer" -> classOf[StringDeserializer],
+          "group.id" -> "test"
+        ), getWriter.writer, getCheckpointService, flushInterval, flushSize)
     )
   }
 

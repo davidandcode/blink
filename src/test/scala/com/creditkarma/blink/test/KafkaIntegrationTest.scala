@@ -14,11 +14,19 @@ import scala.collection.mutable.ListBuffer
   * Created by yongjia.wang on 11/29/16.
   */
 trait KafkaIntegrationTest[K, V]{
-  private val kafkaUnitServer = new KafkaUnit()
+  val configuredPorts: Option[(Int, Int)] = None
+  private lazy val kafkaUnitServer = configuredPorts match {
+    case Some((zPort, kPort)) => new KafkaUnit(zPort, kPort)
+    case None => new KafkaUnit()
+  }
   private var cachedProducer: Option[KafkaProducer[K, V]] = None
   def getOrCreateProducer: KafkaProducer[K, V] = {
     cachedProducer.getOrElse{
-      cachedProducer = Some(new KafkaProducer[K, V](kafkaParams.asJava))
+      cachedProducer = Some(new KafkaProducer[K, V](Map[String, Object](
+        "bootstrap.servers" -> s"localhost:${brokerPort}",
+        "key.serializer" -> classOf[StringSerializer],
+        "value.serializer" -> classOf[StringSerializer]
+      ).asJava))
       cachedProducer.get
     }
   }
@@ -26,22 +34,18 @@ trait KafkaIntegrationTest[K, V]{
   private var cachedConsumer: Option[KafkaConsumer[K, V]] = None
   def getOrCreateConsumer: KafkaConsumer[K, V] = {
     cachedConsumer.getOrElse{
-      cachedConsumer = Some(new KafkaConsumer[K, V](kafkaParams.asJava))
+      cachedConsumer = Some(new KafkaConsumer[K, V](Map[String, Object](
+        "bootstrap.servers" -> s"localhost:${brokerPort}",
+        "key.deserializer" -> classOf[StringDeserializer],
+        "value.deserializer" -> classOf[StringDeserializer],
+        "group.id" -> "test"
+      ).asJava))
       cachedConsumer.get
     }
   }
 
   def zkPort: Int = kafkaUnitServer.getZkPort
   def brokerPort: Int = kafkaUnitServer.getBrokerPort
-
-  def kafkaParams: Map[String, Object] = Map[String, Object](
-    "bootstrap.servers" -> s"localhost:${brokerPort}",
-    "key.serializer" -> classOf[StringSerializer],
-    "key.deserializer" -> classOf[StringDeserializer],
-    "value.serializer" -> classOf[StringSerializer],
-    "value.deserializer" -> classOf[StringDeserializer],
-    "group.id" -> "test"
-  )
 
   def sendMessage(topic: String, key: K, value: V): Unit = {
     getOrCreateProducer.send(new ProducerRecord[K, V](topic, key, value)).get()

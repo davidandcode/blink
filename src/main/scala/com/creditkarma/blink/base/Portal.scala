@@ -162,16 +162,10 @@ final class Portal[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta, 
   private def openTunnel(): Unit = this.synchronized {
     if(!tunnelOpened) {
       updateStatus(new StatusOK(s"opening tunnel"))
-      Try(reader.start()) match {
-        case Success(_) =>
-          Try(writer.start()) match {
-            case Success(_) =>
-              updateStatus(new StatusOK(s"tunnel is open"))
-              tunnelOpened = true
-            case Failure(f) => throw new Exception(s"Failed to open exporter ${writer}", f)
-          }
-        case Failure(f) => throw new Exception(s"Failed to open importer ${reader}", f)
-      }
+      reader.start()
+      writer.start()
+      tunnelOpened = true
+      updateStatus(new StatusOK(s"tunnel is open"))
     }
     else{
       updateStatus(new StatusOK("tunnel already opened"))
@@ -242,6 +236,7 @@ final class Portal[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta, 
   */
 sealed trait PortalController {
   def openPortal(operation: OperationMode.Value, time: TimeMode.Value): Unit
+  def portalId: String
 }
 
 object OperationMode extends Enumeration {

@@ -4,7 +4,7 @@ import com.creditkarma.blink.base.PortalController
 
 /**
   * In order to cast a portal from properties file based configuration, a [[PortalFactory]] class with a zero-argument constructor must be implemented.
-  * [[com.creditkarma.blink.PortalCaster]] will instantiate the factory class from the properties file using basic java reflection.
+  * [[com.creditkarma.blink.MainApp]] will instantiate the factory class from the properties file using basic java reflection.
   * The factory class instance will receive all properties based on prefix of the property name, and it then can decide how to create the portal using the properties.
   * The design is very flexible in the sense that the factory class itself has full control of the entire creation process.
   * It can use its own factory/reflection based strategies to create a wider class of portals. And it can decide how to detect and handle configuration errors, etc.
@@ -13,27 +13,4 @@ import com.creditkarma.blink.base.PortalController
   */
 trait PortalFactory extends SettableProperties {
   def build(): PortalController
-}
-
-class KafkaImportPortalFactory extends PortalFactory {
-
-  override def build(): PortalController = {
-    println(s"${get("name")}")
-    println(s"${get("name1")}")
-    null
-  }
-}
-
-object PortalCasterTest {
-  def main(args: Array[String]): Unit = {
-    val className = "com.creditkarma.logx.factory.KafkaImportPortalFactory"
-    val portalFactory = Class.forName(className).newInstance().asInstanceOf[PortalFactory]
-    portalFactory.set("name", "test")
-    portalFactory.build()
-
-    /*val portal = new PortalFactoryInjector("com.creditkarma.logx.cast.KafkaImportPortalFactory")
-    portal
-      .set("name", "test")
-      .build()*/
-  }
 }
