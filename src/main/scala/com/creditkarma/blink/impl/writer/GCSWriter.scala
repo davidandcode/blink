@@ -91,6 +91,7 @@ class GCSWriter(
     metaData.put("period","60")
 
 
+
     try {
 
 
@@ -103,7 +104,7 @@ class GCSWriter(
         )
         .objects.insert( // insert object
         bucketName, // gcs bucket
-        new StorageObject().setCacheControl(cacheControl).setMetadata(metaData).setName(s"${topicPartition.topic()}/${topicPartition.partition()}/${subPartition.get.getYear}/${subPartition.get.getMonth}/${subPartition.get.getDay}/${firstOffset}.json"), // gcs object name
+        new StorageObject().setCacheControl(cacheControl).setMetadata(metaData).setName(s"${topicPartition.topic()}/${topicPartition.partition(}/${defaulPartitionYear}/${defaulPartitionMonth}/${defaulPartitionDay}/${firstOffset}.json"), // gcs object name
         new InputStreamContent(
           outputAppString, // example "application/json",
           iteratorToStream(
@@ -115,6 +116,9 @@ class GCSWriter(
       )
     requestBad.getMediaHttpUploader.setDirectUploadEnabled(true)
     requestBad.execute()
+
+
+    metaData.put("rows", goodLines.toString)
 
     val requestGood =
         GCSUtils
