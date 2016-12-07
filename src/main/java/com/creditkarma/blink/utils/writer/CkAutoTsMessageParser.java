@@ -40,49 +40,75 @@ public class CkAutoTsMessageParser  {
     private static final String ParseableTsFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ";
 
     public static final int MaxRetryForSmartDetect = 5;
-    private static boolean TimestampFormatWithMicrosecond = false;
+    private final boolean TimestampFormatWithMicrosecond;
+    //private final boolean MessageTimestampParsingErrorLogEnabled;
+    private final String enforcedParsingFields;
 
-
-
-    // for each topic column, keep true/false to indicate if need to convert it from ts to epoch
+    // for each topic-column, keep true/false to indicate if need to convert it from ts to epoch
     private static ConcurrentHashMap<String, Boolean> needToParseColumns = new ConcurrentHashMap<String, Boolean>();
     // for each topic column, keep the test counter before making decision
     private static ConcurrentHashMap<String, AtomicLong> smartDetectColumns = new ConcurrentHashMap<String, AtomicLong>();
 
-    private static String timestampName = "ts";
-    private static Set<String> geneticEnforcedParsedFields = new HashSet<>(); // without topic name
-    private static Set<String> specialEnforcedParsedFields = new HashSet<>(); // topic.field
-
-    static {
-        geneticEnforcedParsedFields.add("ts");
-        specialEnforcedParsedFields.add("crap.ts");
-        needToParseColumns.put("crap.ts",true);
-    }
+    private final String timestampName;
+    private Set<String> geneticEnforcedParsedFields; // without topic name
+    private Set<String> specialEnforcedParsedFields; // topic.field
 
     public static class TsParseResult {
         public final Date date;
         public final Boolean containsColon;
+        public final String year;
+        public final String month;
+        public final String day;
+        public final String hour;
+        public final String minute;
+        public final String second;
 
-
-        public TsParseResult(Date date, Boolean containsColon) {
+        public TsParseResult(Date date, Boolean containsColon,String year, String month,String day,String hour,String minute,String second) {
             this.date = date;
-//            System.out.println(date.toString());
             this.containsColon = containsColon;
+            this.year = year;
+            this.month = month;
+            this.day = day;
+            this.hour = hour;
+            this.minute = minute;
+            this.second = second;
+
         }
     }
 
-    public CkAutoTsMessageParser(String tsName,boolean tsWithMicrosecond) {
+    public CkAutoTsMessageParser(String tsName,boolean ifWithMicro,String enforcedFields) {
+
 
         timestampName = tsName;
-        TimestampFormatWithMicrosecond = tsWithMicrosecond;
+        TimestampFormatWithMicrosecond = ifWithMicro;
+        //MessageTimestampParsingErrorLogEnabled = mConfig.getMessageTimestampParsingErrorLogEnabled();
+        enforcedParsingFields = enforcedFields;
+        //LOG.warn("TimestampFormatWithMicrosecond: " + TimestampFormatWithMicrosecond);
+        //LOG.warn("enforcedParsingFields: " + enforcedParsingFields);
+        //LOG.warn("MessageTimestampParsingErrorLogEnabled: " + MessageTimestampParsingErrorLogEnabled);
 
         geneticEnforcedParsedFields = new HashSet<String>();
         specialEnforcedParsedFields = new HashSet<String>();
-
+        if(enforcedParsingFields != null) {
+            for(String field : enforcedParsingFields.split(",")) {
+                field = field.trim();
+                if(field.length()>0) {
+                    if(field.indexOf(".") >= 0) {
+                        //LOG.warn("specialEnforcedParsedFields: " + field);
+                        specialEnforcedParsedFields.add(field);
+                    }
+                    else {
+                        //LOG.warn("geneticEnforcedParsedFields: " + field);
+                        geneticEnforcedParsedFields.add(field);
+                    }
+                }
+            }
+        }
     }
 
 
-    public static long extractTimestampMillis(final String[] messagePayload,String topic, String partition) {
+    // this method may change input
+    public long extractTimestampMillis(final String[] messagePayload, final String kafkaTopic) {
         JSONObject jsonObject = (JSONObject) JSONValue.parse(messagePayload[0]);
         long tsColumnVal = 0;
 
@@ -92,7 +118,7 @@ public class CkAutoTsMessageParser  {
             // scan all the columns to re-format unparseable timestamp string
             boolean isPayloadChanged = false;
             for(String col: jsonObject.keySet()) {
-                String tableNameAndColumnKey = topic + "." + col;
+                String tableNameAndColumnKey = kafkaTopic + "." + col;
                 Object fieldValue = jsonObject.get(col);
 
                 if (fieldValue != null && fieldValue instanceof String) {
@@ -108,13 +134,13 @@ public class CkAutoTsMessageParser  {
                                 || enforcedParse) {
                             // sampling not done yet or it is a parseable column
                             // always parse tsEvent since it is hard to decide when to skip parse
+
                             tsParseRs = parseAsTsString(fieldStr);
                             if (columnStatus == null)
                                 // sampling not done yet
                                 increaseSamplingCounter(tableNameAndColumnKey, tsParseRs, enforcedParse);
 
-                            //if (tsParseRs.date != null && tsParseRs.containsColon != null && !tsParseRs.containsColon.booleanValue()) {
-                            if (tsParseRs.date != null) {
+                            if (tsParseRs.date != null && tsParseRs.containsColon != null && !tsParseRs.containsColon.booleanValue()) {
                                 // convert to long number if it is a valid timestamp but does not contains colon in tz
                                 isPayloadChanged = true;
                                 // BQ acceptable format "1408452095.220"
@@ -130,11 +156,21 @@ public class CkAutoTsMessageParser  {
             }
 
             if(isPayloadChanged) {
+    try {
+        messagePayload[0] = jsonObject.toJSONString();
+    } catch(Exception e){
 
-                messagePayload[0] = jsonObject.toJSONString();
-
+        // find a way to log this error
+    }
+                // re-format payload
+                //try {
+                    //message.setPayload(jsonObject.toJSONString().getBytes("UTF8"));
+                //} //catch (UnsupportedEncodingException e) {
+                   // LOG.error(String.format("error to change payload for event %s:", jsonObject), e);
+                //}
             }
         }
+
         return tsColumnVal;
     }
 
@@ -144,47 +180,14 @@ public class CkAutoTsMessageParser  {
      * @param tsString
      * @return
      */
-    public static TsParseResult parseAsTsString(String tsString) {
+    public TsParseResult parseAsTsString(String tsString) {
         Date ts = null;
-        Boolean containsColon = null;
-        if (tsString.length() >= TimestampSampleMinLength && tsString.length() <= TimestampSampleMaxLength) {
-            // only parse when it is possible in length
-            Matcher m = UnparseableTsPattern.matcher(tsString);
-            if (m.find()) {
-                String parseableTsStr;
-                String g3subseconds = m.group(3);
-                containsColon = ":".equals(m.group(5));
-                if (g3subseconds != null && g3subseconds.trim().length() > 0) {
-                    int microseconds = Integer.parseInt(g3subseconds);
-                    if (TimestampFormatWithMicrosecond || microseconds >= 1000)
-                        g3subseconds =  String.format("%03d", microseconds/1000);
-                    else
-                        g3subseconds =  String.format("%03d", microseconds) ;
-                    parseableTsStr = m.group(1) + m.group(2) + g3subseconds + m.group(4) + m.group(6);
-                }
-                else
-                    parseableTsStr = m.group(1) + ".0" + m.group(4) + m.group(6);
-                try {
-                    ts = new SimpleDateFormat(ParseableTsFormat).parse(parseableTsStr);
-                } catch (ParseException e) {
-                    //if(MessageTimestampParsingErrorLogEnabled)
-                    //  LOG.warn(String.format("timestamp parsing error: %s with format %s; original: %s", parseableTsStr,
-                    //        ParseableTsFormat, tsString));
-                }
-            }
-        }
-
-        return new TsParseResult(ts, containsColon);
-    }
-
-
-
-    public static String[] parseAsTs(String tsString) {
-
         String year = null;
         String month = null;
         String day = null;
-        Date ts = null;
+        String hour = null;
+        String minute = null;
+        String second = null;
         Boolean containsColon = null;
         if (tsString.length() >= TimestampSampleMinLength && tsString.length() <= TimestampSampleMaxLength) {
             // only parse when it is possible in length
@@ -200,19 +203,36 @@ public class CkAutoTsMessageParser  {
                     else
                         g3subseconds =  String.format("%03d", microseconds) ;
                     parseableTsStr = m.group(1) + m.group(2) + g3subseconds + m.group(4) + m.group(6);
-                    year = m.group(1).substring(0,4);
-                    month = m.group(1).substring(5,7);
-                    day = m.group(1).substring(8,10);
+
                 }
-                else
+                else {
                     parseableTsStr = m.group(1) + ".0" + m.group(4) + m.group(6);
-                year = m.group(1).substring(0,4);
-                month = m.group(1).substring(5,7);
-                day = m.group(1).substring(8,10);
+
+                }
+
+
+
+                try {
+
+                year = parseableTsStr.substring(0,4);
+                month = parseableTsStr.substring(5,7);
+                day = parseableTsStr.substring(8,10);
+                hour = parseableTsStr.substring(11,13);
+                minute = parseableTsStr.substring(14,16);
+                second = parseableTsStr.substring(17,19);
+
+//System.out.println(parseableTsStr + " " + hour + " " + minute + " " + second);
+                    ts = new SimpleDateFormat(ParseableTsFormat).parse(parseableTsStr);
+                } catch (ParseException e) {
+                    //if(MessageTimestampParsingErrorLogEnabled)
+                        //LOG.warn(String.format("timestamp parsing error: %s with format %s; original: %s", parseableTsStr,
+                          //      ParseableTsFormat, tsString));
+                }
             }
         }
 
-        return new String[]{year,month};
+
+        return new TsParseResult(ts, containsColon,year,month,day,hour,minute,second);
     }
 
     /**
@@ -235,7 +255,7 @@ public class CkAutoTsMessageParser  {
         // set decision after parsing some events
         if (counter.get() >= MaxRetryForSmartDetect) {
             needToParseColumns.putIfAbsent(tableNameAndColumnKey, true);
-            // LOG.warn("detected! table column will be converted from timestamp string to epoch: {}", tableNameAndColumnKey);
+            //LOG.warn("detected! table column will be converted from timestamp string to epoch: {}", tableNameAndColumnKey);
         }
         else if (counter.get() <= -MaxRetryForSmartDetect) {
             needToParseColumns.putIfAbsent(tableNameAndColumnKey, false);
@@ -246,25 +266,10 @@ public class CkAutoTsMessageParser  {
 
     public static void main(String[] args){
 
-        TsParseResult mResult = parseAsTsString(TimestampSampleMax);
+        CkAutoTsMessageParser myParser = new CkAutoTsMessageParser("ts",true,"");
 
-        System.out.println(mResult.date.toString());
+        System.out.println(myParser.parseAsTsString(TimestampSampleMax).day);
 
-
-        String[] temp = {"{\"country\":\"United States\",\"appVersion\":\"4.3.1\",\"mobileVersion\":\"6.0.1\",\"screen\":\"ScoreDetails\",\"section\":\"CreditFactors\",\"source\":\"\",\"schemaName\":\"CreditClick.json\",\"deviceId\":\"601be996-97eb-4beb-907e-dce7ff67c833R\",\"userAge\":44,\"userTransunionScore\":587,\"factorName\":\"TotalAccounts\",\"rank\":5,\"state\":\"Georgia\",\"deviceCarrier\":\"T-Mobile\",\"contentType\":\"CreditFactors\",\"krsRecommendationId\":\"\",\"deviceType\":\"Samsung Galaxy Note 4\",\"traceId\":\"f3851f49-dc3e-4f49-96cf-3163fdf8f2b2\",\"userEquifaxScore\":607,\"accountType\":\"\",\"ipAddress\":\"172.58.152\",\"deviceFamily\":\"Samsung Galaxy Note\",\"taplyticsExperiments\":\"{\\\\\\\"cc_refi_cost_editing\\\\\\\":\\\\\\\"enabled\\\\\\\",\\\\\\\"android_account_access_improvements\\\\\\\":\\\\\\\"ShowAccountAccessImprovements\\\\\\\",\\\\\\\"android_fingerprint\\\\\\\":\\\\\\\"baseline\\\\\\\",\\\\\\\"android_regstep2_permission_copy_update\\\\\\\":\\\\\\\"variation_1\\\\\\\"}\",\"version\":\"f953754226a066a456c9de13870d99c8\",\"position\":2,\"deviceBrand\":\"samsung\",\"city\":\"Lithonia\",\"tradelineId\":\"\",\"tsEvent\":\"2016-12-05 16:51:56.419000\",\"contentId\":\"\",\"platform\":\"Android\",\"renderId\":0,\"factorRange\":\"7\",\"requestId\":0,\"mobileRequestId\":0,\"subScreen\":\"Overview\",\"accountCreditor\":\"\",\"deviceManufacturer\":\"samsung\",\"creditBureau\":\"TransUnion\",\"userRegistrationDate\":\"\",\"releaseVersion\":\"v16.48B.03\",\"userMetaDataId\":31662412,\"mobileOS\":\"android\",\"url\":\"\",\"eventCode\":\"viewFactorDetails\",\"mobileRenderId\":0,\"deviceModel\":\"SM-N910T\",\"browserWidth\":0,\"destinationScreen\":\"creditkarma:\\/\\/factors\\/details\",\"ts\":\"2015-01-07T14:22:35.863513-08:00\"}"};
-
-        long result = extractTimestampMillis(temp,"crap","crap");
-
-        System.out.println(result);
-
-        System.out.println(temp[0]);
-
-
-        String[] mResultnew = parseAsTs(TimestampSampleMax);
-
-        for(String s:mResultnew){
-            System.out.println(s);
-        }
 
     }
 
