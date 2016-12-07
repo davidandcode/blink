@@ -69,20 +69,33 @@ class ZooKeeperCPService(hostport: String) extends CheckpointService[KafkaCheckp
     }
   }
 
+
+  // cache checkpoint in memory and load only when initializing
+  private var cachedCheckpoint: Option[KafkaCheckpoint] = None
+
   override def commitCheckpoint(cp: KafkaCheckpoint): Unit = {
     saveDataToZK(SerializationUtils.serialize(cp.timestampedOffsetRanges.toArray))
+    cachedCheckpoint = Some(cp)
     zkClose()
   }
 
+  // this is for integration test to turn off checkpoint caching, so loading checkpoint back from zk storage is tested
+  var useCache: Boolean = true
+
   override def lastCheckpoint(): Option[KafkaCheckpoint] = {
-    if(nodeExists) {
-      val data = loadDataFromZK
-      zkClose()
-      Option(
-        new KafkaCheckpoint(
-          SerializationUtils.deserialize(data)
-            .asInstanceOf[Array[(OffsetRange, Long)]]))
+    if(useCache && cachedCheckpoint != None){
+      cachedCheckpoint
     }
+    else if(nodeExists) {
+        val data = loadDataFromZK
+        zkClose()
+        cachedCheckpoint =
+          Some(
+          new KafkaCheckpoint(
+            SerializationUtils.deserialize(data)
+              .asInstanceOf[Array[(OffsetRange, Long)]]))
+        cachedCheckpoint
+      }
     else {
       None
     }
