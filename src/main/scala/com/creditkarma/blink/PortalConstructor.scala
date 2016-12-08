@@ -4,9 +4,8 @@ import com.creditkarma.blink.base._
 import com.creditkarma.blink.impl.checkpoint.KafkaCheckpoint
 import com.creditkarma.blink.impl.streambuffer.SparkRDD
 import com.creditkarma.blink.impl.streamreader.KafkaSparkRDDReader
-import com.creditkarma.blink.impl.transformer.{IdentityTransformer, KafkaMessageWithId, KafkaSparkMessageIdTransformer}
-import com.creditkarma.blink.impl.writer.{KafkaPartitionWriter, KafkaSparkExporterWithWorker, KafkaSparkRDDPartitionedWriter}
-import com.creditkarma.blink.instrumentation.LogInfoInstrumentor
+import com.creditkarma.blink.impl.transformer.IdentityTransformer
+import com.creditkarma.blink.impl.writer.{KafkaPartitionWriter, KafkaSparkExporterWithWorker}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.spark.streaming.kafka010.OffsetRange
 

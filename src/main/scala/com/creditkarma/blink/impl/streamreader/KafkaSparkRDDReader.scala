@@ -232,7 +232,7 @@ class KafkaSparkRDDReader[K, V](val kafkaParams: Map[String, Object])
     }
   }
 
-  private def fetchTopicPartitions(): Seq[TopicPartition] = {
+  private def listTopicPartitions(): Seq[TopicPartition] = {
     val topicPartitions: Seq[TopicPartition] = kafkaConsumer.listTopics().asScala.filter {
       case (topic: String, _) => topicFilter(topic)
     }.flatMap(_._2.asScala).map {
@@ -242,10 +242,11 @@ class KafkaSparkRDDReader[K, V](val kafkaParams: Map[String, Object])
     updateStatus(this, new StatusOK(s"Got topic partitions ${topicPartitions}"))
     topicPartitions
   }
+
   override def fetchData(checkpoint: KafkaCheckpoint): (SparkRDD[ConsumerRecord[K, V]], KafkaSparkReaderMeta) = {
 
     val readTime = System.currentTimeMillis()
-    val topicPartitions: Seq[TopicPartition] = fetchTopicPartitions()
+    val topicPartitions: Seq[TopicPartition] = listTopicPartitions()
 
     kafkaConsumer.assign(topicPartitions.asJava) // initialize empty partition offset to 0, otherwise it'll through Exception
     kafkaConsumer.seekToBeginning(topicPartitions.asJava)
@@ -299,7 +300,7 @@ class KafkaSparkRDDReader[K, V](val kafkaParams: Map[String, Object])
 
   override def checkpointFromNow(): KafkaCheckpoint = {
     val readTime = System.currentTimeMillis()
-    val topicPartitions: Seq[TopicPartition] = fetchTopicPartitions()
+    val topicPartitions: Seq[TopicPartition] = listTopicPartitions()
     kafkaConsumer.assign(topicPartitions.asJava)
     kafkaConsumer.seekToEnd(topicPartitions.asJava)
     val currentOffsetRangesMark =

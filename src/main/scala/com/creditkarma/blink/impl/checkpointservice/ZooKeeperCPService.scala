@@ -22,6 +22,7 @@ class ZooKeeperCPService(hostport: String) extends CheckpointService[KafkaCheckp
   private def zkNodePath = "/" + PREFIX + portalId // portalId is not available at construction time, so must use def not val
 
   private def zkOpen = {
+    updateStatus(new StatusOK(s"ZooKeeper client connecting $hostport"))
     val connected = new CountDownLatch(1)
     val zookeeper = new ZooKeeper(hostport, timeOut, new Watcher {
       override def process(event: WatchedEvent): Unit = {

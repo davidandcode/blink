@@ -11,22 +11,24 @@ import org.apache.spark.streaming.kafka010.{HasOffsetRanges, OffsetRange}
 
 import scala.util.{Failure, Success, Try}
 
-/**
-  * Created by yongjia.wang on 12/5/16.
-  */
-case class KafkaOutputPartition[P](osr: OffsetRange, subPartition: Option[P]){
-  def topicPartition: TopicPartition = osr.topicPartition()
-  def topic: String = osr.topic
-  def partition: Int = osr.partition
-  def fromOffset: Long = osr.fromOffset
-}
-case class KafkaOutputPartitionMeta2[P](partitionInfo: KafkaOutputPartition[P], clientMeta: WriterClientMeta, minOffset: Long, maxOffset: Long)
 
+
+
+/**
+  * GroupBy is an expensive operation since it reshuffle the input records without local combining.
+  * In this case, even groupBy is simply performing a sub-partitioning of the original map partitions (one for each kafka topicPartition),
+  * there is no guarantee Spark can make arrangement of the executors to take advantage of it.
+  * This kind of re-shuffling is unavoidable in general since the number of subpartitions may be very large, therefore not safe to do in memory,
+  * and they have to be encapsulated as individual tasks to ensure scalability. Basically groupBy requires linear size buffering in the worst case.
+  * @tparam K
+  * @tparam V
+  * @tparam P
+  */
 class KafkaSparkExporterWithWorker[K, V, P]
 (partitionedWriter: KafkaPartitionWriter[K, V, P])
-  extends Writer[SparkRDD[ConsumerRecord[K, V]], KafkaCheckpoint, Seq[OffsetRange], KafkaOutputMeta[P]] {
+  extends Writer[SparkRDD[ConsumerRecord[K, V]], KafkaCheckpoint, Seq[OffsetRange], KafkaAggregatedMeta[P]] {
 
-  override def write(data: SparkRDD[ConsumerRecord[K, V]], sharedState: ExporterAccessor[KafkaCheckpoint, Seq[OffsetRange]]): KafkaOutputMeta[P] = {
+  override def write(data: SparkRDD[ConsumerRecord[K, V]], sharedState: ExporterAccessor[KafkaCheckpoint, Seq[OffsetRange]]): KafkaAggregatedMeta[P] = {
     partitionedWriter.registerPortal(portalId) // portalId is not available at construction time
     val localPartitionedWriter = partitionedWriter
     val offsetRangeByIndex = data.rdd.asInstanceOf[HasOffsetRanges].offsetRanges
@@ -38,43 +40,43 @@ class KafkaSparkExporterWithWorker[K, V, P]
           val messageIterator =
             consumerRecords.zipWithIndex.map {
               case (cr: ConsumerRecord[K, V], messageIndex: Int) =>
-                KafkaMessageWithId(cr.key(), cr.value(), KafkaMessageId(osr.topicPartition, osr.fromOffset + messageIndex), osr.fromOffset)}
+                KafkaMessageWithId(cr.key(), cr.value(), KafkaMessageId(osr.topicPartition, osr.fromOffset + messageIndex))}
           Seq((osr, messageIterator)).iterator
       }
     // Divide the RDD into subPartitions using groupBy, which is an expensive operation requiring shuffling and buffering with worst case linear size.
     // The message becomes Iterable, not Iterator any more, reflecting the buffering. Its iterator is used in output to keep consistent API.
     // If subPartition is not used, it's simply an on-the-fly map transformation, the entire flow is streamlined without shuffling.
-    val outputPartitionStreamRDD: RDD[(KafkaOutputPartition[P], Iterator[KafkaMessageWithId[K, V]])] =
+    val outputPartitionStreamRDD: RDD[(KafkaSubPartition[P], Iterator[KafkaMessageWithId[K, V]])] =
       if (localPartitionedWriter.useSubPartition) {
         // when using subpartition, must perform a groupByKey on each records keyed by the (topicPartition, subPartition) combination
         topicPartitionStreamRDD.flatMap {
           case (osr, messageItr: Iterator[KafkaMessageWithId[K, V]]) => messageItr.map {
             message =>
               val subPartition = Some(localPartitionedWriter.getSubPartition(message.value))
-              (KafkaOutputPartition[P](osr, subPartition), message)}
+              (KafkaSubPartition[P](osr, subPartition), message)}
         }.groupByKey.map{
           case (partitionInfo, messages: Iterable[KafkaMessageWithId[K, V]]) => (partitionInfo, messages.iterator)}
       }
       else {
         topicPartitionStreamRDD.map {
-          case (osr, messageItr) =>(KafkaOutputPartition[P](osr, None), messageItr)}}
+          case (osr, messageItr) =>(KafkaSubPartition[P](osr, None), messageItr)}}
 
     val topicPartitionMeta: Seq[KafkaTopicPartitionMeta[P]] =
       outputPartitionStreamRDD.map{
-        case (outputPartition, messageItr) =>
+        case (subPartition, messageItr) =>
           val outputMeta =
             Try(
-              localPartitionedWriter.writeAndExtractOffset(outputPartition.topicPartition, outputPartition.fromOffset, None, messageItr)) match {
-              case Success((clientMeta, minOffset, maxOffset)) => KafkaOutputPartitionMeta2(outputPartition, clientMeta, minOffset, maxOffset)
-              case Failure(f) => KafkaOutputPartitionMeta2(outputPartition, WriterClientMeta(0, 0, false, f.getMessage), -1, -1)}
-          (outputPartition.topicPartition, outputMeta)
+              localPartitionedWriter.write(subPartition, messageItr)) match {
+              case Success(clientMeta) => KafkaSubPartitionMeta(subPartition, clientMeta)
+              case Failure(f) => KafkaSubPartitionMeta(subPartition, WriterClientMeta(0, 0, false, f.getMessage))}
+          (subPartition.osr, outputMeta)
       }.groupByKey().map {
-        case (topicPartition, metaIterable) =>
-          val topicPartitionMeta = KafkaTopicPartitionMeta[P](topicPartition)
+        case (osr, metaIterable) =>
+          val topicPartitionMeta = KafkaTopicPartitionMeta[P](osr)
           metaIterable.foreach(topicPartitionMeta.aggregate)
           topicPartitionMeta
       }.collect()
 
-    new KafkaOutputMeta(topicPartitionMeta, sharedState.importerDelta)
+    new KafkaAggregatedMeta(topicPartitionMeta)
   }
 }
