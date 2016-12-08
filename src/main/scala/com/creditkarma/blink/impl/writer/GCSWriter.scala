@@ -8,13 +8,11 @@ import com.creditkarma.blink.utils.gcs.GCSUtils
 import com.creditkarma.blink.utils.writer.CkAutoTsMessageParser
 import com.google.api.client.http.InputStreamContent
 import com.google.api.services.storage.model.StorageObject
-import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.TopicPartition
 
 import scala.collection.JavaConverters._
-import scala.collection.immutable.{StreamIterator, VectorIterator}
 import scala.collection.mutable
-import scala.collection.mutable.ListBuffer
+
 
 /**
   * Created by shengwei.wang on 12/7/16.
@@ -104,7 +102,7 @@ class GCSWriter(
         )
         .objects.insert( // insert object
         bucketName, // gcs bucket
-        new StorageObject().setCacheControl(cacheControl).setMetadata(metaData).setName(s"${topicPartition.topic()}/${topicPartition.partition(}/${defaulPartitionYear}/${defaulPartitionMonth}/${defaulPartitionDay}/${firstOffset}.json"), // gcs object name
+        new StorageObject().setCacheControl(cacheControl).setMetadata(metaData).setName(s"${topicPartition.topic()}/${topicPartition.partition}/${defaulPartitionYear}/${defaulPartitionMonth}/${defaulPartitionDay}/${firstOffset}.json"), // gcs object name
         new InputStreamContent(
           outputAppString, // example "application/json",
           iteratorToStream(
