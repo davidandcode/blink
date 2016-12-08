@@ -10,8 +10,6 @@ import com.creditkarma.blink.impl.checkpointservice.ZooKeeperCPService
 class BlinkKafkaCheckpointToZookeeperServiceTest extends BlinkKafkaIntegrationTest{
   override def getWriter: WriterType = SimpleCollectibleWriter
   override def getCheckpointService: CheckpointService[KafkaCheckpoint] = {
-    val zkcps = new ZooKeeperCPService("localhost:" + zkPort)
-    zkcps.useCache = false
-    zkcps
+    new ZooKeeperCPService("localhost:" + zkPort)
   }
 }

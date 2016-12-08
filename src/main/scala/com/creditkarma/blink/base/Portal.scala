@@ -191,11 +191,11 @@ final class Portal[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta, 
       case TimeMode.Origin =>
         val checkpoint = reader.checkpointFromEarliest()
         updateStatus(new StatusOK(s"rewind checkpoint to earliest: cp=[${checkpoint}]"))
-        stateTracker.commitCheckpoint(checkpoint)
+        stateTracker.persist(checkpoint)
       case TimeMode.Now =>
         val checkpoint = reader.checkpointFromNow()
         updateStatus(new StatusOK(s"mark current position: cp=[${checkpoint}]"))
-        stateTracker.commitCheckpoint(checkpoint)
+        stateTracker.persist(checkpoint)
       case TimeMode.MemoryOrNow =>
         stateTracker.lastCheckpoint() match {
           case Some(checkpoint) =>
@@ -203,7 +203,7 @@ final class Portal[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta, 
           case None =>
             val checkpoint = reader.checkpointFromNow()
             updateStatus(new StatusOK(s"not checkpoint found, mark current position: cp=[${checkpoint}]"))
-            stateTracker.commitCheckpoint(checkpoint)
+            stateTracker.persist(checkpoint)
         }
       case TimeMode.MemoryOrFail =>
         stateTracker.lastCheckpoint() match {
