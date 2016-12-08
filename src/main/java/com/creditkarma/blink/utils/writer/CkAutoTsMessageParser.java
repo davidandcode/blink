@@ -63,6 +63,7 @@ public class CkAutoTsMessageParser  {
         public final String minute;
         public final String second;
 
+
         public TsParseResult(Date date, Boolean containsColon,String year, String month,String day,String hour,String minute,String second) {
             this.date = date;
             this.containsColon = containsColon;
@@ -108,9 +109,10 @@ public class CkAutoTsMessageParser  {
 
 
     // this method may change input
-    public long extractTimestampMillis(final String[] messagePayload, final String kafkaTopic) throws ParseException {
+    public TsParseResult extractTimestampMillis(final String[] messagePayload, final String kafkaTopic) throws Exception {
         JSONObject jsonObject = (JSONObject) JSONValue.parse(messagePayload[0]);
         long tsColumnVal = 0;
+        TsParseResult result = null;
 
         if (jsonObject != null) {
 
@@ -149,8 +151,10 @@ public class CkAutoTsMessageParser  {
                         }
 
                         // get the value from special column "ts", which is the return value of this function
-                        if (col.equals(timestampName) && tsParseRs != null && tsParseRs.date != null)
+                        if (col.equals(timestampName) && tsParseRs != null && tsParseRs.date != null){
                             tsColumnVal = tsParseRs.date.getTime();
+                            result = tsParseRs;
+                        }
                     }
                 }
             }
@@ -171,7 +175,7 @@ public class CkAutoTsMessageParser  {
             }
         }
 
-        return tsColumnVal;
+        return result;
     }
 
     /**
@@ -180,7 +184,7 @@ public class CkAutoTsMessageParser  {
      * @param tsString
      * @return
      */
-    public TsParseResult parseAsTsString(String tsString) throws ParseException {
+    public TsParseResult parseAsTsString(String tsString) throws Exception {
         Date ts = null;
         String year = null;
         String month = null;
@@ -223,7 +227,7 @@ public class CkAutoTsMessageParser  {
 
 //System.out.println(parseableTsStr + " " + hour + " " + minute + " " + second);
                     ts = new SimpleDateFormat(ParseableTsFormat).parse(parseableTsStr);
-                } catch (ParseException e) {
+                } catch (Exception e) {
                     //if(MessageTimestampParsingErrorLogEnabled)
                         //LOG.warn(String.format("timestamp parsing error: %s with format %s; original: %s", parseableTsStr,
                           //      ParseableTsFormat, tsString));

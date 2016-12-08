@@ -8,6 +8,7 @@ import com.creditkarma.blink.utils.gcs.GCSUtils
 import com.creditkarma.blink.utils.writer.CkAutoTsMessageParser
 import com.google.api.client.http.InputStreamContent
 import com.google.api.services.storage.model.StorageObject
+import net.minidev.json.{JSONObject, JSONValue}
 import org.apache.kafka.common.TopicPartition
 
 import scala.collection.JavaConverters._
@@ -39,10 +40,22 @@ class GCSWriter(
 
   override def getSubPartition(payload: String): GCSSubPartition = {
 
-    val mTsParser = new CkAutoTsMessageParser(tsName,ifWithMicro,enforcedFields)
-    val tsParseResult = mTsParser.parseAsTsString(payload)
+    // if the playload is not a valid json string, swallow the exception and return an empty subpartition
+try {
+  val jsonObject: JSONObject = JSONValue.parse(payload).asInstanceOf[JSONObject]
+} catch {
+  case e:Exception =>{ return new GCSSubPartition("","","","","","")}
+}
 
+    val mTsParser = new CkAutoTsMessageParser(tsName,ifWithMicro,enforcedFields)
+    val m:Array[String] = new Array[String](1)
+    m(0) = payload
+    val tsParseResult = mTsParser.extractTimestampMillis(m,"")
+
+    if(tsParseResult != null)
     new GCSSubPartition(tsParseResult.year,tsParseResult.month,tsParseResult.day,tsParseResult.hour,tsParseResult.minute,tsParseResult.second)
+    else
+    new GCSSubPartition("","","","","","")
   }
 
   /**
@@ -59,6 +72,9 @@ class GCSWriter(
     */
   override def write(topicPartition: TopicPartition, firstOffset: Long, subPartition: Option[GCSSubPartition], data: Iterator[KafkaMessageWithId[String, String]]): WriterClientMeta = {
     // need to create 2 requests: one for all parsable lines; the other for unparsable lines
+
+
+
     val mParser: CkAutoTsMessageParser = new CkAutoTsMessageParser(tsName, ifWithMicro, enforcedFields)
 
     val good: mutable.MutableList[KafkaMessageWithId[String, String]] = 	new mutable.MutableList[KafkaMessageWithId[String, String]]()
@@ -83,16 +99,11 @@ class GCSWriter(
 
     }
 
-
     val metaData:util.HashMap[String,String] = new util.HashMap[String,String]()
     metaData.put("priority",null)
     metaData.put("period","60")
 
-
-
-    try {
-
-
+try{
     val requestBad =
       GCSUtils
         .getService( // get gcs storage service
@@ -114,7 +125,6 @@ class GCSWriter(
       )
     requestBad.getMediaHttpUploader.setDirectUploadEnabled(true)
     requestBad.execute()
-
 
     metaData.put("rows", goodLines.toString)
 
