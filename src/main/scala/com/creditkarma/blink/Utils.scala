@@ -11,6 +11,8 @@ import com.creditkarma.blink.impl.writer.{KafkaPartitionWriter, KafkaSparkRDDPar
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.spark.streaming.kafka010.OffsetRange
 
+import scala.collection.mutable.ListBuffer
+
 /**
   * Utility functions to source to sink pipe with predefined arguments
   */
@@ -73,7 +75,7 @@ object Utils {
 
 object Serializer {
 
-  def serialize[T <: Serializable](obj: T): Array[Byte] = {
+  def serialize[T <: java.io.Serializable](obj: T): Array[Byte] = {
     val byteOut = new ByteArrayOutputStream()
     val objOut = new ObjectOutputStream(byteOut)
     objOut.writeObject(obj)
@@ -82,7 +84,7 @@ object Serializer {
     byteOut.toByteArray
   }
 
-  def deserialize[T <: Serializable](bytes: Array[Byte]): T = {
+  def deserialize[T <: java.io.Serializable](bytes: Array[Byte]): T = {
     val byteIn = new ByteArrayInputStream(bytes)
     val objIn = new ObjectInputStream(byteIn)
     val obj = objIn.readObject().asInstanceOf[T]
