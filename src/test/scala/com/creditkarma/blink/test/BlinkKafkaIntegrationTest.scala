@@ -1,16 +1,12 @@
 package com.creditkarma.blink.test
-import com.creditkarma.blink.{PortalConstructor, Utils}
+import com.creditkarma.blink.PortalConstructor
 import com.creditkarma.blink.base.{CheckpointService, OperationMode, Portal, TimeMode}
 import com.creditkarma.blink.impl.checkpoint.KafkaCheckpoint
 import com.creditkarma.blink.impl.streambuffer.SparkRDD
-import com.creditkarma.blink.impl.transformer.KafkaMessageWithId
-import com.creditkarma.blink.impl.writer.KafkaSparkRDDPartitionedWriter
 import com.creditkarma.blink.instrumentation.LogInfoInstrumentor
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.serialization.StringDeserializer
-import org.apache.log4j.{Level, LogManager}
 import org.apache.spark.streaming.kafka010.OffsetRange
-import org.apache.spark.{SparkConf, SparkContext}
 import org.scalatest._
 /**
   * Kafka Integration Test trait with pluggable modules
@@ -21,7 +17,6 @@ trait BlinkKafkaIntegrationTest extends FeatureSpec with BeforeAndAfterAll with 
   type Key = String
   type Value = String
   type Partition = String
-  //type PortalType = Portal[SparkRDD[ConsumerRecord[Key, Value]], SparkRDD[KafkaMessageWithId[Key, Value]], KafkaCheckpoint, Seq[OffsetRange]]
   type PortalType = Portal[SparkRDD[ConsumerRecord[Key, Value]], SparkRDD[ConsumerRecord[Key, Value]], KafkaCheckpoint, Seq[OffsetRange]]
   type WriterType = CollectibleTestWriter[Key, Value, Partition]
 
@@ -34,7 +29,6 @@ trait BlinkKafkaIntegrationTest extends FeatureSpec with BeforeAndAfterAll with 
   def getOrCreatePortal(portalId: String, flushSize: Long, flushInterval: Long = defaultFlushInterval): PortalType = {
     _kafkaPortals.getOrElseUpdate(
       portalId,
-      //Utils.createKafkaSparkPortalWithSingleThreadedWriter(
       PortalConstructor.createKafkaSparkPortalWithSingleThreadedWriter(
       portalId, Map[String, Object](
           "bootstrap.servers" -> s"localhost:${brokerPort}",
@@ -96,7 +90,7 @@ trait BlinkKafkaIntegrationTest extends FeatureSpec with BeforeAndAfterAll with 
       portal.openPortal(OperationMode.ImporterDepletion, TimeMode.Origin)
 
       Then("the writer threads should collectively observe the same data")
-      assert(getWriter.collect.get(portalId).get.map(_.toString).sorted == allMessages.map(_.toString).sorted)
+      assert(getWriter.collect.get(portalId).get.sortBy(_.toString) == allMessages.sortBy(_.toString))
     }
 
     scenario("Two portals from Kafka with independent checkpoint") {

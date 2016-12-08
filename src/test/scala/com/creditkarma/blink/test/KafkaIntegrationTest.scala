@@ -79,7 +79,7 @@ trait KafkaIntegrationTest[K, V]{
           val records = consumer.poll(timeout)
           records.records(tp).asScala.zipWithIndex.map{
             case(record, index) =>
-              KafkaMessageWithId(record.key(), record.value(), KafkaMessageId(tp, fromOffset + index), fromOffset)
+              KafkaMessageWithId(record.key(), record.value(), KafkaMessageId(tp, fromOffset + index))
           }
       }
     }
