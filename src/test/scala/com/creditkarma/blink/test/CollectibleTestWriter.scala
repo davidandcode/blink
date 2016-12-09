@@ -1,7 +1,6 @@
 package com.creditkarma.blink.test
 
-import com.creditkarma.blink.impl.transformer.KafkaMessageWithId
-import com.creditkarma.blink.impl.writer.KafkaPartitionWriter
+import com.creditkarma.blink.impl.spark.exporter.kafka.{KafkaMessageWithId, KafkaPartitionWriter}
 
 /**
   * This is for testing purpose, to collect what the single threaded writer have

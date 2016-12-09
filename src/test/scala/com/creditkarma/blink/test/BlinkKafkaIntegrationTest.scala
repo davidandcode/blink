@@ -1,8 +1,8 @@
 package com.creditkarma.blink.test
 import com.creditkarma.blink.PortalConstructor
-import com.creditkarma.blink.base.{CheckpointService, OperationMode, Portal, TimeMode}
-import com.creditkarma.blink.impl.checkpoint.KafkaCheckpoint
-import com.creditkarma.blink.impl.streambuffer.SparkRDD
+import com.creditkarma.blink.base.{StateTracker, OperationMode, Portal, TimeMode}
+import com.creditkarma.blink.impl.spark.buffer.SparkRDD
+import com.creditkarma.blink.impl.spark.tracker.kafka.KafkaCheckpoint
 import com.creditkarma.blink.instrumentation.LogInfoInstrumentor
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.serialization.StringDeserializer
@@ -21,7 +21,7 @@ trait BlinkKafkaIntegrationTest extends FeatureSpec with BeforeAndAfterAll with 
   type WriterType = CollectibleTestWriter[Key, Value, Partition]
 
   def getWriter: WriterType
-  def getCheckpointService: CheckpointService[KafkaCheckpoint]
+  def getCheckpointService: StateTracker[KafkaCheckpoint]
 
   private val _kafkaPortals = collection.mutable.Map.empty[String, PortalType]
 

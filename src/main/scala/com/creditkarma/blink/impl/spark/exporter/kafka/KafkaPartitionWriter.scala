@@ -1,8 +1,6 @@
-package com.creditkarma.blink.impl.writer
+package com.creditkarma.blink.impl.spark.exporter.kafka
 
-import com.creditkarma.blink.client.{ClientModuleType, SparkWorkerModule}
-import com.creditkarma.blink.impl.transformer.KafkaMessageWithId
-import org.apache.kafka.common.TopicPartition
+import com.creditkarma.blink.impl.spark.{ClientModuleType, SparkWorkerModule}
 
 /**
   * Created by yongjia.wang on 12/7/16.

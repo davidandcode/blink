@@ -1,8 +1,5 @@
 package com.creditkarma.blink.test
-import com.creditkarma.blink.client.ClientModuleType
-import com.creditkarma.blink.impl.transformer.KafkaMessageWithId
-import com.creditkarma.blink.impl.writer.{KafkaPartitionWriter, KafkaSubPartition, WriterClientMeta}
-import org.apache.kafka.common.TopicPartition
+import com.creditkarma.blink.impl.spark.exporter.kafka.{KafkaMessageWithId, KafkaPartitionWriter, KafkaSubPartition, WriterClientMeta}
 
 import scala.collection.mutable.ListBuffer
 

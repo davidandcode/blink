@@ -1,11 +1,9 @@
-package com.creditkarma.blink.impl.writer
+package com.creditkarma.blink.impl.spark.exporter.kafka
 
-import com.creditkarma.blink.base.{ExporterAccessor, StatusUnexpected, Writer}
-import com.creditkarma.blink.impl.checkpoint.KafkaCheckpoint
-import com.creditkarma.blink.impl.streambuffer.SparkRDD
-import com.creditkarma.blink.impl.transformer.{KafkaMessageId, KafkaMessageWithId}
+import com.creditkarma.blink.base.{ExporterAccessor, Exporter}
+import com.creditkarma.blink.impl.spark.buffer.SparkRDD
+import com.creditkarma.blink.impl.spark.tracker.kafka.KafkaCheckpoint
 import org.apache.kafka.clients.consumer.ConsumerRecord
-import org.apache.kafka.common.TopicPartition
 import org.apache.spark.rdd.RDD
 import org.apache.spark.streaming.kafka010.{HasOffsetRanges, OffsetRange}
 
@@ -26,9 +24,9 @@ import scala.util.{Failure, Success, Try}
   */
 class KafkaSparkExporterWithWorker[K, V, P]
 (partitionedWriter: KafkaPartitionWriter[K, V, P])
-  extends Writer[SparkRDD[ConsumerRecord[K, V]], KafkaCheckpoint, Seq[OffsetRange], KafkaAggregatedMeta[P]] {
+  extends Exporter[SparkRDD[ConsumerRecord[K, V]], KafkaCheckpoint, Seq[OffsetRange], KafkaExportMeta[P]] {
 
-  override def write(data: SparkRDD[ConsumerRecord[K, V]], sharedState: ExporterAccessor[KafkaCheckpoint, Seq[OffsetRange]]): KafkaAggregatedMeta[P] = {
+  override def export(data: SparkRDD[ConsumerRecord[K, V]], sharedState: ExporterAccessor[KafkaCheckpoint, Seq[OffsetRange]]): KafkaExportMeta[P] = {
     partitionedWriter.registerPortal(portalId) // portalId is not available at construction time
     val localPartitionedWriter = partitionedWriter
     val offsetRangeByIndex = data.rdd.asInstanceOf[HasOffsetRanges].offsetRanges
@@ -77,6 +75,6 @@ class KafkaSparkExporterWithWorker[K, V, P]
           topicPartitionMeta
       }.collect()
 
-    new KafkaAggregatedMeta(topicPartitionMeta)
+    new KafkaExportMeta(topicPartitionMeta)
   }
 }

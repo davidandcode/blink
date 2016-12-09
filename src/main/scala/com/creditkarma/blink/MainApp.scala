@@ -1,15 +1,12 @@
 package com.creditkarma.blink
 
 import com.creditkarma.blink.base.{OperationMode, TimeMode}
-import com.creditkarma.blink.factory.{KafkaStringPartitionWriterCreator, PortalFactory, PortalProperties}
-import com.creditkarma.blink.impl.transformer.KafkaMessageWithId
-import com.creditkarma.blink.impl.writer.{KafkaPartitionWriter, WriterClientMeta}
+import com.creditkarma.blink.factory.{PortalFactory, PortalProperties}
 import com.creditkarma.blink.utils.LazyLog
-import org.apache.kafka.common.TopicPartition
 import org.apache.spark.{SparkConf, SparkContext}
 
 /**
-  * Created by yongjia.wang on 12/2/16.
+  * MainApp for Blink
   */
 object MainApp extends LazyLog{
 
@@ -29,6 +26,11 @@ object MainApp extends LazyLog{
     }
   }
 
+  /**
+    * Cast and start a portal based on properties file.
+    * @param configFile
+    * @return
+    */
   def castPortal(configFile: String): String = {
     val properties = PortalProperties().loadProperties(configFile)
     def get(name: String) = properties.get(name)

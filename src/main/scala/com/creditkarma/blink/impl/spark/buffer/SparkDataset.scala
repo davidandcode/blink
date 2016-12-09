@@ -1,4 +1,4 @@
-package com.creditkarma.blink.impl.streambuffer
+package com.creditkarma.blink.impl.spark.buffer
 
 import com.creditkarma.blink.base.BufferedData
 import org.apache.spark.sql.Dataset

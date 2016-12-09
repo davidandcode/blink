@@ -1,4 +1,4 @@
-package com.creditkarma.blink.impl.transformer
+package com.creditkarma.blink.impl.spark.exporter.kafka
 
 import org.apache.kafka.common.TopicPartition
 

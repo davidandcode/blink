@@ -5,7 +5,7 @@ import scala.util.{Failure, Success, Try}
 /**
   * Created by yongjia.wang on 11/16/16.
   */
-trait CheckpointService[C <: Checkpoint[_ , C]] extends CoreModule {
+trait StateTracker[C <: Checkpoint[_ , C]] extends CoreModule {
   def persist(cp: C): Unit
   def lastCheckpoint(): Option[C]
 
