@@ -50,7 +50,6 @@ class InfoToKafkaInstrumentor(flushSize:Int,host:String,port:String,topicName:St
       }.mkString(",")}")
     counter += 1
     flush
-
   }
 
   override def phaseStarted(module: CoreModule, phase: Phase.Value): Unit = {
