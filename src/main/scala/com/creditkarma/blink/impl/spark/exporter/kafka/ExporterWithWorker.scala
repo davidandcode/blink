@@ -21,9 +21,9 @@ import scala.util.{Failure, Success, Try}
   */
 class ExporterWithWorker[K, V, P]
 (exportWorker: ExportWorker[K, V, P])
-  extends Exporter[SparkRDD[ConsumerRecord[K, V]], KafkaCheckpoint, Seq[OffsetRange], KafkaExportMeta[P]] {
+  extends Exporter[SparkRDD[ConsumerRecord[K, V]], KafkaCheckpoint, Seq[OffsetRange], KafkaExportMeta] {
 
-  override def export(data: SparkRDD[ConsumerRecord[K, V]], sharedState: ExporterAccessor[KafkaCheckpoint, Seq[OffsetRange]]): KafkaExportMeta[P] = {
+  override def export(data: SparkRDD[ConsumerRecord[K, V]], sharedState: ExporterAccessor[KafkaCheckpoint, Seq[OffsetRange]]): KafkaExportMeta = {
     exportWorker.registerPortal(portalId) // portalId is not available at construction time
     val closureWorker = exportWorker // this reassignment is necessary for Spark not to attempt serializing the entire Exporter class
     val offsetRangeByIndex = data.rdd.asInstanceOf[HasOffsetRanges].offsetRanges
@@ -56,7 +56,7 @@ class ExporterWithWorker[K, V, P]
         topicPartitionStreamRDD.map {
           case (osr, messageItr) =>(SubPartition[P](osr, None), messageItr)}}
     // collect the topicPartition level meta data back to driver. This action actually triggers the entire operation.
-    val topicPartitionMeta: Seq[TopicPartitionMeta[P]] =
+    val topicPartitionMeta: Seq[TopicPartitionMeta] =
       partitionedStreamRDD.map{
         case (subPartition, messageItr) =>
           val outputMeta =
@@ -67,7 +67,7 @@ class ExporterWithWorker[K, V, P]
           (subPartition.osr, outputMeta)
       }.groupByKey().map {
         case (osr, metaIterable) =>
-          val topicPartitionMeta = TopicPartitionMeta[P](osr)
+          val topicPartitionMeta = TopicPartitionMeta(osr)
           metaIterable.foreach(topicPartitionMeta.aggregate)
           topicPartitionMeta
       }.collect()

@@ -7,7 +7,7 @@ import org.apache.spark.streaming.kafka010.OffsetRange
 /**
   * Created by yongjia.wang on 12/7/16.
   */
-class KafkaExportMeta[P](meta: Seq[TopicPartitionMeta[P]]) extends ExportMeta[Seq[OffsetRange]]{
+class KafkaExportMeta(meta: Seq[TopicPartitionMeta]) extends ExportMeta[Seq[OffsetRange]]{
   override def metrics: Metrics = new Metrics {
     override def metrics: Iterable[Metric] = meta
   }
