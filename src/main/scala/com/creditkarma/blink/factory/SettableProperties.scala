@@ -35,6 +35,10 @@ trait SettableProperties extends PropertySetter with PropertyGetter {
     }
   }
 
+  override def getOption(name: String): Option[String] = {
+    properties.get(name)
+  }
+
   override def getPropertiesByPrefix(prefix: String): Map[String, String] = {
     properties.filter(_._1.startsWith(prefix)).toMap
   }
@@ -48,6 +52,7 @@ trait PropertySetter {
 
 trait PropertyGetter {
   def get(name: String): String
+  def getOption(name: String): Option[String]
   def getLong(name: String): Long = throw new Exception("not supported")
   def getPropertiesByPrefix(prefix: String): Map[String, String]
   def allProperties: Map[String, String]

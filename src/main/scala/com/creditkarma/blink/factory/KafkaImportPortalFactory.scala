@@ -3,8 +3,10 @@ package com.creditkarma.blink.factory
 import com.creditkarma.blink.PortalConstructor
 import com.creditkarma.blink.base.PortalController
 import com.creditkarma.blink.impl.spark.exporter.kafka.ExportWorker
+import com.creditkarma.blink.impl.spark.importer.kafka.KafkaTopicFilter
 import com.creditkarma.blink.impl.spark.tracker.kafka.ZooKeeperStateTracker
 import com.creditkarma.blink.instrumentation.LogInfoInstrumentor
+import kafka.consumer.{Blacklist, Whitelist}
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 import org.scalactic.Fail
 
@@ -22,6 +24,8 @@ class KafkaImportPortalFactory extends PortalFactory {
   val ZOOKEEPER_HOST_PARAM = "zookeeper.host"
   val FLUSH_INTERVAL_PARAM = "flush.interval"
   val FLUSH_SIZE_PARAM = "flush.size"
+  val KAFKA_WHITELIST_PARAM = "kafka.whitelist"
+  val KAFKA_BLACKLIST_PARAM = "kafka.blacklist"
 
 
   override def build(): PortalController = {
@@ -47,7 +51,8 @@ class KafkaImportPortalFactory extends PortalFactory {
       checkpointService = new ZooKeeperStateTracker(get(ZOOKEEPER_HOST_PARAM)),
       flushInterval = getLong(FLUSH_INTERVAL_PARAM),
       flushSize = getLong(FLUSH_SIZE_PARAM),
-      Seq(LogInfoInstrumentor())// instrumentation should also be controllable by parameters, for now just always add the logging one
+      Seq(LogInfoInstrumentor()), // instrumentation should also be controllable by parameters, for now just always add the logging one
+      new KafkaTopicFilter(getOption(KAFKA_WHITELIST_PARAM).map(new Whitelist(_)), getOption(KAFKA_BLACKLIST_PARAM).map(new Blacklist(_)))
     )
   }
 }

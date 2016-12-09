@@ -33,12 +33,15 @@ object PortalProperties {
 
     // the getter interface is nicer then using option
     override def get(name: String): String = {
-      Option(properties.getProperty(name)) match {
+      getOption(name) match {
         case Some(value) => value
         case None => throw new Exception(s"$name is not set")
       }
     }
 
     override def allProperties: Map[String, String] = getPropertiesByPrefix("")
+
+    // not supported on this class
+    override def getOption(name: String): Option[String] = Option(properties.getProperty(name))
   }
 }
