@@ -47,10 +47,23 @@ try {
 }
   }
 
-  override def write(topicPartition: TopicPartition, firstOffset: Long, subPartition: Option[GCSSubPartition], data: Iterator[KafkaMessageWithId[String, String]]): WriterClientMeta = {
+  override def write(topicPartition: TopicPartition, firstOffset: Long, subPartition: Option[GCSSubPartition],
+                     data: Iterator[KafkaMessageWithId[String, String]]): WriterClientMeta = {
 
     var lines = 0L
     var bytes = 0L
+
+    val itr = new Iterator[KafkaMessageWithId[String, String]] {
+      override def hasNext: Boolean = data.hasNext
+
+      override def next(): KafkaMessageWithId[String, String] = {
+        lines += 1
+        val record = data.next()
+        bytes += record.value.size
+        record
+      }
+    }
+
 
     val mInputStreamContent = new InputStreamContent(
       outputAppString, // example "application/json",
