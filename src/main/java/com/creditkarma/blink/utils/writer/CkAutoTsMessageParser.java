@@ -44,7 +44,6 @@ public class CkAutoTsMessageParser {
         public final String second;
         public long time;
 
-
         public TsParseResult(Date date, Boolean containsColon,String year, String month,String day,String hour,String minute,String second) {
             this.date = date;
             this.containsColon = containsColon;
@@ -178,6 +177,5 @@ public class CkAutoTsMessageParser {
 
         return new TsParseResult(ts, containsColon,year,month,day,hour,minute,second);
     }
-
 
 }

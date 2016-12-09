@@ -49,20 +49,17 @@ try {
 
   override def write(topicPartition: TopicPartition, firstOffset: Long, subPartition: Option[GCSSubPartition], data: Iterator[KafkaMessageWithId[String, String]]): WriterClientMeta = {
 
-    var lines:Long = 0
-    var bytes:Long = 0
-    var flag:Boolean = true
-
+    var lines = 0L
+    var bytes = 0L
 
     val mInputStreamContent = new InputStreamContent(
       outputAppString, // example "application/json",
       iteratorToStream(
         data.map {
           record: KafkaMessageWithId[String, String] => {
-            lines +=1
-            bytes += record.value.getBytes.length
+            lines += 1L
+            bytes += record.value.getBytes().length
             record.value + "\n"
-
           }
         }
       )
@@ -72,9 +69,6 @@ try {
     metaData.put("period","60")
     metaData.put("priority",null)
     metaData.put("rows",lines.toString)
-
-
-
 
     try {
       val request =

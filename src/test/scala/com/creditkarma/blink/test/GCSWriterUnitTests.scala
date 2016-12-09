@@ -74,6 +74,9 @@ object GCSWriterUnitTests {
     val month = mGCSWriter.getSubPartition(singleRecord1.value).getMonth
     val day = mGCSWriter.getSubPartition(singleRecord1.value).getDay
     data += singleRecord1
+    data += new KafkaMessageWithId[String,String]("testKey", "test 2nd line", fakeKMI, 0)
+    data += new KafkaMessageWithId[String,String]("testKey", "test 3rd line", fakeKMI, 0)
+    data += new KafkaMessageWithId[String,String]("testKey", "test 4th line", fakeKMI, 0)
     val result: WriterClientMeta = mGCSWriter.write(testTopicPartition, 1234567, Some(new GCSSubPartition(year,month,day,"","","")), data.toIterator)
 
 
