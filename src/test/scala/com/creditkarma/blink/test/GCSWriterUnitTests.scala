@@ -16,6 +16,24 @@ object GCSWriterUnitTests {
   def main(args: Array[String]): Unit = {
 
 
+    /**
+      *
+      *          tsName: String,
+                      ifWithMicro: Boolean,
+                      enforcedFields: String,
+                      credentialsPath: String,
+                      connectTimeoutMs: Int,
+                      readTimeoutMs: Int,
+                      bucketName:String,
+                      outputAppString:String,
+                      metaData:String,
+                      cacheControl:String,
+                      outputFileExtension:String
+      *
+      */
+
+
+
     val mGCSWriter: GCSWriter = new GCSWriter(
       "ts",
       true,
@@ -25,8 +43,9 @@ object GCSWriterUnitTests {
       10000,
       "dataeng_test",
       "application/json",
+      "priority,high;period,60",
       "",
-      ""
+      "json"
     )
 
 
@@ -81,7 +100,7 @@ object GCSWriterUnitTests {
     val subPartition = SubPartition(OffsetRange(testTopicPartition, 1234567, 2345678), Some(new GCSSubPartition(year,month,day,"","","")))
     val result: WorkerMeta = mGCSWriter.write(subPartition, data.toIterator)
 
-
+    println(result.records + " " + result.bytes + " " + result.complete)
 
 
   }

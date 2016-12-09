@@ -10,8 +10,7 @@ import com.google.api.client.http.InputStreamContent
 import com.google.api.services.storage.model.StorageObject
 
 import scala.collection.JavaConverters._
-
-
+import scala.util.{Failure, Success, Try}
 /**
   * Created by shengwei.wang on 12/7/16.
   */
@@ -25,11 +24,12 @@ class GCSWriter(
                       bucketName:String,
                       outputAppString:String,
                       metaData:String,
-                      cacheControl:String
-
+                      cacheControl:String,
+                      outputFileExtension:String
                     ) extends ExportWorker[String,String,GCSSubPartition]{
   override def useSubPartition: Boolean = true
 
+  // messages with unparseable ts all go to the default partition
   private val defaulPartitionYear:String = "1969"
   private val defaulPartitionMonth:String = "12"
   private val defaulPartitionDay:String = "31"
@@ -49,45 +49,35 @@ try {
                      data: Iterator[KafkaMessageWithId[String, String]]): WorkerMeta = {
 
     def topic = partition.topic
-    def topicPartition = partition.topicPartition
+    def topicPartitn = partition.partition
     def subPartition = partition.subPartition
     def firstOffset = partition.fromOffset
 
     var lines = 0L
     var bytes = 0L
 
-    val itr = new Iterator[KafkaMessageWithId[String, String]] {
-      override def hasNext: Boolean = data.hasNext
-
-      override def next(): KafkaMessageWithId[String, String] = {
-        lines += 1
-        val record = data.next()
-        bytes += record.value.size
-        record
-      }
-    }
-
-
+    // construct a stream for gcs uploader
     val mInputStreamContent = new InputStreamContent(
       outputAppString, // example "application/json",
       iteratorToStream(
         data.map {
           record: KafkaMessageWithId[String, String] => {
-            lines += 1L
-            bytes += record.value.getBytes().length
+            lines += 1
+            bytes += record.value.size
             record.value + "\n"
           }
         }
       )
     )
 
-    val metaData: util.HashMap[String,String] = new util.HashMap[String,String]()
-    metaData.put("period","60")
-    metaData.put("priority",null)
-    metaData.put("rows",lines.toString)
+    val metaDataMap: util.HashMap[String,String] = new util.HashMap[String,String]()
+    for(keyString <- metaData.split(";")){
+      metaDataMap.put(keyString.split(",")(0),keyString.split(",")(1))
+    }
 
-    try {
-      val request =
+    val result=
+    Try (
+      {val request =
         GCSUtils
           .getService(// get gcs storage service
             credentialsPath,
@@ -96,15 +86,19 @@ try {
           )
           .objects.insert(// insert object
           bucketName, // gcs bucket
-          new StorageObject().setMetadata(metaData).setCacheControl(cacheControl).setName(s"${topicPartition.topic()}/${topicPartition.partition}/${subPartition.map(_.getYear).getOrElse("")}/${subPartition.get.getMonth}/${subPartition.get.getDay}/${firstOffset}.json"), // gcs object name
+          new StorageObject().setMetadata(metaDataMap).setCacheControl(cacheControl).setName(s"${topic}/${topicPartitn}/${subPartition.map(_.getYear).getOrElse(defaulPartitionYear)}/${subPartition.map(_.getMonth).getOrElse(defaulPartitionMonth)}/${subPartition.map(_.getDay).getOrElse(defaulPartitionDay)}/${firstOffset}.${outputFileExtension}"), // gcs object name
           mInputStreamContent
         )
       request.getMediaHttpUploader.setDirectUploadEnabled(true)
       request.execute()
-      return new WorkerMeta(lines,bytes,true)
-    } catch {
-      case e:Exception => {return new WorkerMeta(lines,bytes,false)}
-      }
+  }
+      )
+    match {
+      case Success(_) => new WorkerMeta(lines,bytes,true)
+      case Failure(f) => new WorkerMeta(lines,bytes,false)
+    }
+    
+    result
   }
 
   def iteratorToStream (strings: Iterator[String]): InputStream = {

@@ -3,6 +3,7 @@ package com.creditkarma.blink.factory
 import com.creditkarma.blink.PortalConstructor
 import com.creditkarma.blink.base.PortalController
 import com.creditkarma.blink.impl.spark.exporter.kafka.ExportWorker
+import com.creditkarma.blink.impl.spark.exporter.kafka.gcs.GCSSubPartition
 import com.creditkarma.blink.impl.spark.tracker.kafka.ZooKeeperStateTracker
 import com.creditkarma.blink.instrumentation.LogInfoInstrumentor
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
@@ -54,4 +55,9 @@ class KafkaImportPortalFactory extends PortalFactory {
 
 trait KafkaStringPartitionWriterCreator extends SettableProperties {
   def writer: ExportWorker[String, String, String]
+}
+
+
+trait KafkaPartitionGCSWriterCreator extends SettableProperties {
+  def writer: ExportWorker[String, String, GCSSubPartition]
 }

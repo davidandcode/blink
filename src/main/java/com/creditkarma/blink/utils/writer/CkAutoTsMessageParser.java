@@ -11,8 +11,6 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -54,7 +52,15 @@ public class CkAutoTsMessageParser {
         public final String hour;
         public final String minute;
         public final String second;
-        public long time;
+        private long time;
+
+        public void setTime(long time){
+            this.time = time;
+        }
+
+        public long getTime(){
+            return time;
+        }
 
         public TsParseResult(Date date, Boolean containsColon,String year, String month,String day,String hour,String minute,String second) {
             this.date = date;
@@ -65,11 +71,10 @@ public class CkAutoTsMessageParser {
             this.hour = hour;
             this.minute = minute;
             this.second = second;
-
         }
     }
 
-    // enforcedFields may have 2 fields: 1 column name 2 topic name . field name
+    //enforcedFields may have 2 field formats: 1. just a column name; 2. topic name . field name
     public CkAutoTsMessageParser(String tsName, boolean ifWithMicro, String enforcedFields) {
 
         timestampName = tsName;
@@ -92,12 +97,12 @@ public class CkAutoTsMessageParser {
         }
     }
 
+    // this method DOESN'T mutate the messagePayload
     public TsParseResult extractTimestampMillis(final String messagePayload, final String kafkaTopic) throws Exception {
 
-        JSONObject jsonObject = (JSONObject) JSONValue.parse(messagePayload);
-        long tsColumnVal = 0;
         TsParseResult result = null;
 
+        JSONObject jsonObject = (JSONObject) JSONValue.parse(messagePayload);
         if (jsonObject != null) {
             for(String col: jsonObject.keySet()) {
                 String tableNameAndColumnKey = kafkaTopic + "." + col;
@@ -115,18 +120,14 @@ public class CkAutoTsMessageParser {
 
                         // get the value from special column "ts", which is the return value of this function
                         if (col.equals(timestampName) && tsParseRs != null && tsParseRs.date != null){
-                            tsColumnVal = tsParseRs.date.getTime();
-                            tsParseRs.time = tsColumnVal;
+                            tsParseRs.setTime(tsParseRs.date.getTime());
                             result = tsParseRs;
                         }
                     }
                 }
             }
 
-        } else {
-            throw  new Exception();
         }
-
         return result;
     }
 
@@ -164,20 +165,18 @@ public class CkAutoTsMessageParser {
                     parseableTsStr = m.group(1) + ".0" + m.group(4) + m.group(6);
                 }
 
-                try {
                 year = parseableTsStr.substring(YEAR_START_INDEX,YEAR_END_INDEX);
                 month = parseableTsStr.substring(MONTH_START_INDEX,MONTH_END_INDEX);
                 day = parseableTsStr.substring(DAY_START_INDEX,DAY_END_INDEX);
                 hour = parseableTsStr.substring(HOUR_START_INDEX,HOUR_END_INDEX);
-                minute = parseableTsStr.substring(MINUTE_START_INDEX,MONTH_END_INDEX);
+                minute = parseableTsStr.substring(MINUTE_START_INDEX,MINUTE_END_INDEX);
                 second = parseableTsStr.substring(SECOND_START_INDEX,SECOND_END_INDEX);
                     ts = new SimpleDateFormat(ParseableTsFormat).parse(parseableTsStr);
-                } catch (Exception e) {
-                    throw e;
-                }
-            }
-        } else {
-            throw  new Exception();
+            } else{
+                throw new Exception("No time stamp pattern found!");
+            } // if no meaningful ts found, throw an exception
+        } else { // if length not good, throw an exception
+            throw  new Exception("time stamp length not good: " + tsString.length());
         }
         return new TsParseResult(ts, containsColon,year,month,day,hour,minute,second);
     }
