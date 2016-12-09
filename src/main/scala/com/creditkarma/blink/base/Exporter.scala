@@ -2,7 +2,7 @@ package com.creditkarma.blink.base
 
 import scala.util.{Failure, Success, Try}
 
-trait WriterMeta[Delta] {
+trait ExportMeta[Delta] {
   /**
     *
     * @return optionally return delta for partial checkpoint
@@ -14,11 +14,11 @@ trait WriterMeta[Delta] {
 }
 
 /**
-  * Writer flushes stream buffer into the sink
+  * [[Exporter]] flushes stream buffer into the sink
   * @tparam D specific to the reading source's checkpoint, writer can oprtionally return delta for partial commit to checkpoint
   * @tparam Meta meta data of the read operation, used to construct checkpoint delta and metrics
   */
-trait Writer[B <: BufferedData, C <: Checkpoint[D, C], D, Meta <: WriterMeta[D]] extends CoreModule {
+trait Exporter[B <: BufferedData, C <: Checkpoint[D, C], D, Meta <: ExportMeta[D]] extends CoreModule {
   def start(): Unit = {}
 
   def close(): Unit = {}
@@ -34,12 +34,12 @@ trait Writer[B <: BufferedData, C <: Checkpoint[D, C], D, Meta <: WriterMeta[D]]
     *         In case of Kafka Spark RDD, local buffering is simply a matter of manipulating the Kafka OffsetRanges since everything is lazy
     *         The detailed metrics should also be reflected in the writer's implementation
     */
-  def write(data: B, sharedState: ExporterAccessor[C, D]): Meta
+  def export(data: B, sharedState: ExporterAccessor[C, D]): Meta
 
 
   final def execute(data: B, sharedState: ExporterAccessor[C, D]): Unit = {
     phaseStarted(Phase.Write)
-    Try(write(data, sharedState))
+    Try(export(data, sharedState))
     match {
       case Success(meta) =>
         updateMetrics(meta.metrics)

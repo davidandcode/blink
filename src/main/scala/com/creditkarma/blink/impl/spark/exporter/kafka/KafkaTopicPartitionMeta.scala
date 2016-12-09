@@ -1,7 +1,7 @@
-package com.creditkarma.blink.impl.writer
+package com.creditkarma.blink.impl.spark.exporter.kafka
 
 import com.creditkarma.blink.base._
-import com.creditkarma.blink.impl.streamreader.{KafkaMetricDimension, KafkaMetricField}
+import com.creditkarma.blink.impl.spark.importer.kafka.{KafkaMetricDimension, KafkaMetricField}
 import org.apache.kafka.common.TopicPartition
 import org.apache.spark.streaming.kafka010.OffsetRange
 

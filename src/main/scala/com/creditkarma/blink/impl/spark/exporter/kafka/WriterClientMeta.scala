@@ -1,4 +1,4 @@
-package com.creditkarma.blink.impl.writer
+package com.creditkarma.blink.impl.spark.exporter.kafka
 
 /**
   * Created by yongjia.wang on 12/7/16.

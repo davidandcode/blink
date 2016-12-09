@@ -1,11 +1,11 @@
 package com.creditkarma.blink.test
-import com.creditkarma.blink.base.CheckpointService
-import com.creditkarma.blink.impl.checkpoint.KafkaCheckpoint
+import com.creditkarma.blink.base.StateTracker
+import com.creditkarma.blink.impl.spark.tracker.kafka.KafkaCheckpoint
 
 /**
   * Created by yongjia.wang on 11/30/16.
   */
 class BlinkBasicIntegrationTest extends BlinkKafkaIntegrationTest{
   override def getWriter: WriterType = SimpleCollectibleWriter
-  override def getCheckpointService: CheckpointService[KafkaCheckpoint] = new InMemoryKafkaCheckpointService
+  override def getCheckpointService: StateTracker[KafkaCheckpoint] = new InMemoryKafkaStateTracker
 }

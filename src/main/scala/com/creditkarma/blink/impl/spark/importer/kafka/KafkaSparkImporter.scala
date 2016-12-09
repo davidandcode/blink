@@ -1,8 +1,8 @@
-package com.creditkarma.blink.impl.streamreader
+package com.creditkarma.blink.impl.spark.importer.kafka
 
 import com.creditkarma.blink.base._
-import com.creditkarma.blink.impl.checkpoint.KafkaCheckpoint
-import com.creditkarma.blink.impl.streambuffer.SparkRDD
+import com.creditkarma.blink.impl.spark.buffer.SparkRDD
+import com.creditkarma.blink.impl.spark.tracker.kafka.KafkaCheckpoint
 import org.apache.kafka.clients.consumer.{ConsumerRecord, KafkaConsumer}
 import org.apache.kafka.common.TopicPartition
 import org.apache.spark.SparkContext
@@ -132,9 +132,9 @@ class TopicPartitionMeta
   * @param offsetRanges Currently available topic partition offsetRanges
   * @param maxRecordsPerPartition It's possible to set topic specific policy
   */
-class KafkaSparkReaderMeta
+class KafkaImportMeta
 (override val readTime: Long, lastCheckpoint: KafkaCheckpoint, offsetRanges: Seq[OffsetRange],
- maxRecordsPerPartition: Long, maxInterval: Long) extends ReadMeta[Seq[OffsetRange]] {
+ maxRecordsPerPartition: Long, maxInterval: Long) extends ImportMeta[Seq[OffsetRange]] {
 
   val topicPartitionMetaData: Seq[TopicPartitionMeta] = {
     val lastCheckpointMap = lastCheckpoint.timestampedOffsetRanges.map{
@@ -168,8 +168,8 @@ class KafkaSparkReaderMeta
   override def shouldFlush: Boolean = delta.nonEmpty
 }
 
-class KafkaSparkRDDReader[K, V](val kafkaParams: Map[String, Object])
-  extends Reader[SparkRDD[ConsumerRecord[K, V]], KafkaCheckpoint, Seq[OffsetRange], KafkaSparkReaderMeta] {
+class KafkaSparkImporter[K, V](val kafkaParams: Map[String, Object])
+  extends Importer[SparkRDD[ConsumerRecord[K, V]], KafkaCheckpoint, Seq[OffsetRange], KafkaImportMeta] {
 
   private val DefaultFlushInterval: Long = 1000
   private val DefaultMaxRecordsPerPartition: Long = 1000
@@ -243,7 +243,7 @@ class KafkaSparkRDDReader[K, V](val kafkaParams: Map[String, Object])
     topicPartitions
   }
 
-  override def fetchData(checkpoint: KafkaCheckpoint): (SparkRDD[ConsumerRecord[K, V]], KafkaSparkReaderMeta) = {
+  override def fetchData(checkpoint: KafkaCheckpoint): (SparkRDD[ConsumerRecord[K, V]], KafkaImportMeta) = {
 
     val readTime = System.currentTimeMillis()
     val topicPartitions: Seq[TopicPartition] = listTopicPartitions()
@@ -262,7 +262,7 @@ class KafkaSparkRDDReader[K, V](val kafkaParams: Map[String, Object])
       case (tp, earliestOffset) => OffsetRange(tp, earliestOffset, kafkaConsumer.position(tp))
     }
 
-    val meta = new KafkaSparkReaderMeta(readTime, checkpoint,
+    val meta = new KafkaImportMeta(readTime, checkpoint,
       availableOffsetRanges, maxRecordsPerPartition, flushInterval)
 
     (

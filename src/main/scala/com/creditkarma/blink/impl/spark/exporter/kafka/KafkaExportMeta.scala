@@ -1,13 +1,13 @@
-package com.creditkarma.blink.impl.writer
+package com.creditkarma.blink.impl.spark.exporter.kafka
 
-import com.creditkarma.blink.base.{Metric, Metrics, WriterMeta}
+import com.creditkarma.blink.base.{Metric, Metrics, ExportMeta}
 import org.apache.spark.streaming.kafka010.OffsetRange
 
 /**
   * Created by yongjia.wang on 12/7/16.
   */
-class KafkaAggregatedMeta[P](meta: Seq[KafkaTopicPartitionMeta[P]])
-  extends WriterMeta[Seq[OffsetRange]]{
+class KafkaExportMeta[P](meta: Seq[KafkaTopicPartitionMeta[P]])
+  extends ExportMeta[Seq[OffsetRange]]{
   override def metrics: Metrics = new Metrics {
     override def metrics: Iterable[Metric] = meta
   }

@@ -1,7 +1,4 @@
-package com.creditkarma.blink.client
-
-import com.creditkarma.blink.base.ModuleType._
-import com.creditkarma.blink.base.StatusOK
+package com.creditkarma.blink.impl.spark
 
 /**
   * All the client modules must be serializable

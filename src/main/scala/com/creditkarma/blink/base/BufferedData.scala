@@ -1,5 +1,5 @@
 package com.creditkarma.blink.base
-import com.creditkarma.blink.impl.streambuffer._
+import com.creditkarma.blink.impl.spark.buffer.{SparkDataset, SparkRDD}
 /**
   * [[BufferedData]] is the abstraction of data during streaming
   * [[SparkRDD]] and [[SparkDataset]] are the ideal implementation of this abstraction

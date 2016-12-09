@@ -1,4 +1,4 @@
-package com.creditkarma.blink.impl.writer
+package com.creditkarma.blink.impl.spark.exporter.kafka
 
 import org.apache.kafka.common.TopicPartition
 import org.apache.spark.streaming.kafka010.OffsetRange
