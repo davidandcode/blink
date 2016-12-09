@@ -11,8 +11,6 @@ class GCSSubPartition(
                        minute:String,
                        second:String
                      )  extends  Serializable{
-
-
   def getYear = year
   def getMonth = month
   def getDay = day
