@@ -17,15 +17,15 @@ trait SettableProperties extends PropertySetter with PropertyGetter {
     }
   }
 
-  override def get(name: String): String = {
+  override def getOrFail(name: String): String = {
     properties.get(name) match {
       case Some(value) => value
       case None => throw new Exception(s"$name is not set")
     }
   }
 
-  override def getLong(name: String): Long = {
-    Try(get(name)) match {
+  override def getLongOrFail(name: String): Long = {
+    Try(getOrFail(name)) match {
       case Success(strValue) =>
         Try(strValue.toLong) match {
           case Success(intervalLong) => intervalLong
@@ -35,7 +35,7 @@ trait SettableProperties extends PropertySetter with PropertyGetter {
     }
   }
 
-  override def getOption(name: String): Option[String] = {
+  override def get(name: String): Option[String] = {
     properties.get(name)
   }
 
@@ -51,9 +51,9 @@ trait PropertySetter {
 }
 
 trait PropertyGetter {
-  def get(name: String): String
-  def getOption(name: String): Option[String]
-  def getLong(name: String): Long = throw new Exception("not supported")
+  def getOrFail(name: String): String
+  def getLongOrFail(name: String): Long = throw new Exception("not supported")
+  def get(name: String): Option[String]
   def getPropertiesByPrefix(prefix: String): Map[String, String]
   def allProperties: Map[String, String]
 }

@@ -7,7 +7,7 @@ import scala.collection.JavaConverters._
 
 /**
   * The properties should contain globally accessible properties by all the modules
-  * The module should peroperly manage their own namespace by using lower case dot connected strings for the property name
+  * The module should properly manage their own namespace by using lower case dot connected strings for the property name
   */
 trait PortalProperties extends PropertyGetter {
   def loadProperties(file: String): PortalProperties
@@ -32,8 +32,8 @@ object PortalProperties {
     }
 
     // the getter interface is nicer then using option
-    override def get(name: String): String = {
-      getOption(name) match {
+    override def getOrFail(name: String): String = {
+      get(name) match {
         case Some(value) => value
         case None => throw new Exception(s"$name is not set")
       }
@@ -42,6 +42,6 @@ object PortalProperties {
     override def allProperties: Map[String, String] = getPropertiesByPrefix("")
 
     // not supported on this class
-    override def getOption(name: String): Option[String] = Option(properties.getProperty(name))
+    override def get(name: String): Option[String] = Option(properties.getProperty(name))
   }
 }
