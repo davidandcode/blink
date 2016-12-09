@@ -1,15 +1,13 @@
 package com.creditkarma.blink.test
 
-import com.creditkarma.blink.impl.transformer.{KafkaMessageId, KafkaMessageWithId}
+import com.creditkarma.blink.impl.spark.exporter.kafka.{KafkaMessageId, KafkaMessageWithId}
 import info.batey.kafka.unit.KafkaUnit
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
-import org.scalatest.{BeforeAndAfterAll, Suite}
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable.ListBuffer
 /**
   * Created by yongjia.wang on 11/29/16.
   */
@@ -79,7 +77,7 @@ trait KafkaIntegrationTest[K, V]{
           val records = consumer.poll(timeout)
           records.records(tp).asScala.zipWithIndex.map{
             case(record, index) =>
-              KafkaMessageWithId(record.key(), record.value(), KafkaMessageId(tp, fromOffset + index), fromOffset)
+              KafkaMessageWithId(record.key(), record.value(), KafkaMessageId(tp, fromOffset + index))
           }
       }
     }

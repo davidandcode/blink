@@ -1,8 +1,8 @@
-package com.creditkarma.blink.impl.streamreader
+package com.creditkarma.blink.impl.spark.importer.kafka
 
 import com.creditkarma.blink.base._
-import com.creditkarma.blink.impl.checkpoint.KafkaCheckpoint
-import com.creditkarma.blink.impl.streambuffer.SparkRDD
+import com.creditkarma.blink.impl.spark.buffer.SparkRDD
+import com.creditkarma.blink.impl.spark.tracker.kafka.KafkaCheckpoint
 import org.apache.kafka.clients.consumer.{ConsumerRecord, KafkaConsumer}
 import org.apache.kafka.common.TopicPartition
 import org.apache.spark.SparkContext
@@ -132,9 +132,9 @@ class TopicPartitionMeta
   * @param offsetRanges Currently available topic partition offsetRanges
   * @param maxRecordsPerPartition It's possible to set topic specific policy
   */
-class KafkaSparkReaderMeta
+class KafkaImportMeta
 (override val readTime: Long, lastCheckpoint: KafkaCheckpoint, offsetRanges: Seq[OffsetRange],
- maxRecordsPerPartition: Long, maxInterval: Long) extends ReadMeta[Seq[OffsetRange]] {
+ maxRecordsPerPartition: Long, maxInterval: Long) extends ImportMeta[Seq[OffsetRange]] {
 
   val topicPartitionMetaData: Seq[TopicPartitionMeta] = {
     val lastCheckpointMap = lastCheckpoint.timestampedOffsetRanges.map{
@@ -168,8 +168,8 @@ class KafkaSparkReaderMeta
   override def shouldFlush: Boolean = delta.nonEmpty
 }
 
-class KafkaSparkRDDReader[K, V](val kafkaParams: Map[String, Object])
-  extends Reader[SparkRDD[ConsumerRecord[K, V]], KafkaCheckpoint, Seq[OffsetRange], KafkaSparkReaderMeta] {
+class KafkaSparkImporter[K, V](kafkaParams: Map[String, Object])
+  extends Importer[SparkRDD[ConsumerRecord[K, V]], KafkaCheckpoint, Seq[OffsetRange], KafkaImportMeta] {
 
   private val DefaultFlushInterval: Long = 1000
   private val DefaultMaxRecordsPerPartition: Long = 1000
@@ -204,7 +204,12 @@ class KafkaSparkRDDReader[K, V](val kafkaParams: Map[String, Object])
     flushInterval = t
   }
 
-  def kafkaConsumer: KafkaConsumer[K, V] = {
+  /**
+    * cached consumer
+    */
+  private var _kafkaConsumer: Option[KafkaConsumer[K, V]] = None
+
+  private def kafkaConsumer: KafkaConsumer[K, V] = {
     _kafkaConsumer match {
       case Some(kc) => kc
       case None =>
@@ -222,17 +227,21 @@ class KafkaSparkRDDReader[K, V](val kafkaParams: Map[String, Object])
     }
   }
 
-  override def close(): Unit = {
+  private def closeConsumer(): Unit = {
     _kafkaConsumer match {
       case Some(kc) =>
-        updateStatus(new StatusOK(s"Closing kafka consumer in reader $this"))
+        updateStatus(new StatusOK(s"Closing kafka consumer"))
         kc.close()
         _kafkaConsumer = None
       case None =>
     }
   }
 
-  private def fetchTopicPartitions(): Seq[TopicPartition] = {
+  override def close(): Unit = {
+    closeConsumer()
+  }
+
+  private def listTopicPartitions(): Seq[TopicPartition] = {
     val topicPartitions: Seq[TopicPartition] = kafkaConsumer.listTopics().asScala.filter {
       case (topic: String, _) => topicFilter(topic)
     }.flatMap(_._2.asScala).map {
@@ -242,10 +251,11 @@ class KafkaSparkRDDReader[K, V](val kafkaParams: Map[String, Object])
     updateStatus(this, new StatusOK(s"Got topic partitions ${topicPartitions}"))
     topicPartitions
   }
-  override def fetchData(checkpoint: KafkaCheckpoint): (SparkRDD[ConsumerRecord[K, V]], KafkaSparkReaderMeta) = {
+
+  override def fetchData(checkpoint: KafkaCheckpoint): (SparkRDD[ConsumerRecord[K, V]], KafkaImportMeta) = {
 
     val readTime = System.currentTimeMillis()
-    val topicPartitions: Seq[TopicPartition] = fetchTopicPartitions()
+    val topicPartitions: Seq[TopicPartition] = listTopicPartitions()
 
     kafkaConsumer.assign(topicPartitions.asJava) // initialize empty partition offset to 0, otherwise it'll through Exception
     kafkaConsumer.seekToBeginning(topicPartitions.asJava)
@@ -261,7 +271,7 @@ class KafkaSparkRDDReader[K, V](val kafkaParams: Map[String, Object])
       case (tp, earliestOffset) => OffsetRange(tp, earliestOffset, kafkaConsumer.position(tp))
     }
 
-    val meta = new KafkaSparkReaderMeta(readTime, checkpoint,
+    val meta = new KafkaImportMeta(readTime, checkpoint,
       availableOffsetRanges, maxRecordsPerPartition, flushInterval)
 
     (
@@ -275,10 +285,6 @@ class KafkaSparkRDDReader[K, V](val kafkaParams: Map[String, Object])
       meta
       )
   }
-  /**
-    * private internal mutable states
-    */
-  private var _kafkaConsumer: Option[KafkaConsumer[K, V]] = None
 
   /**
     * Kafka reader can be configured to read topics with several approach
@@ -299,7 +305,7 @@ class KafkaSparkRDDReader[K, V](val kafkaParams: Map[String, Object])
 
   override def checkpointFromNow(): KafkaCheckpoint = {
     val readTime = System.currentTimeMillis()
-    val topicPartitions: Seq[TopicPartition] = fetchTopicPartitions()
+    val topicPartitions: Seq[TopicPartition] = listTopicPartitions()
     kafkaConsumer.assign(topicPartitions.asJava)
     kafkaConsumer.seekToEnd(topicPartitions.asJava)
     val currentOffsetRangesMark =

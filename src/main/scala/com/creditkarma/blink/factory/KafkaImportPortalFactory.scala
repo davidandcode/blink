@@ -2,8 +2,8 @@ package com.creditkarma.blink.factory
 
 import com.creditkarma.blink.PortalConstructor
 import com.creditkarma.blink.base.PortalController
-import com.creditkarma.blink.impl.checkpointservice.ZooKeeperCPService
-import com.creditkarma.blink.impl.writer.KafkaPartitionWriter
+import com.creditkarma.blink.impl.spark.exporter.kafka.ExportWorker
+import com.creditkarma.blink.impl.spark.tracker.kafka.ZooKeeperStateTracker
 import com.creditkarma.blink.instrumentation.LogInfoInstrumentor
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 import org.scalactic.Fail
@@ -11,7 +11,8 @@ import org.scalactic.Fail
 import scala.util.{Failure, Success, Try}
 
 /**
-  * Created by yongjia.wang on 12/7/16.
+  * Create portals from Kafka specifically
+  * The witer class an be injected as a dynamically loaded class
   */
 class KafkaImportPortalFactory extends PortalFactory {
 
@@ -43,7 +44,7 @@ class KafkaImportPortalFactory extends PortalFactory {
         "group.id" -> s"blink.portal.${get(PORTAL_ID_PARAM)}"
       ),
       singleThreadPartitionWriter = writerCreator.writer,
-      checkpointService = new ZooKeeperCPService(get(ZOOKEEPER_HOST_PARAM)),
+      checkpointService = new ZooKeeperStateTracker(get(ZOOKEEPER_HOST_PARAM)),
       flushInterval = getLong(FLUSH_INTERVAL_PARAM),
       flushSize = getLong(FLUSH_SIZE_PARAM),
       Seq(LogInfoInstrumentor())// instrumentation should also be controllable by parameters, for now just always add the logging one
@@ -52,5 +53,5 @@ class KafkaImportPortalFactory extends PortalFactory {
 }
 
 trait KafkaStringPartitionWriterCreator extends SettableProperties {
-  def writer: KafkaPartitionWriter[String, String, String]
+  def writer: ExportWorker[String, String, String]
 }

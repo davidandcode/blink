@@ -1,8 +1,9 @@
 package com.creditkarma.blink.test
 
-import com.creditkarma.blink.impl.transformer.{KafkaMessageId, KafkaMessageWithId}
-import com.creditkarma.blink.impl.writer.{GCSSubPartition, GCSWriter, WriterClientMeta}
+import com.creditkarma.blink.impl.spark.exporter.kafka.{KafkaMessageId, KafkaMessageWithId, SubPartition, WorkerMeta}
+import com.creditkarma.blink.impl.spark.exporter.kafka.gcs.{GCSSubPartition, GCSWriter}
 import org.apache.kafka.common.TopicPartition
+import org.apache.spark.streaming.kafka010.OffsetRange
 
 import scala.collection.mutable
 
@@ -69,15 +70,16 @@ object GCSWriterUnitTests {
     val fakeKMI = KafkaMessageId(testTopicPartition,1)
     val data: mutable.MutableList[KafkaMessageWithId[String, String]] = new mutable.MutableList[KafkaMessageWithId[String, String]]
 
-    val singleRecord1 = new KafkaMessageWithId[String,String]("testKey", "{\"dwNumericId\":5446427592603205633,\"traceId\":\"3a47bfd7-f050-424a-8bb3-1e84a3ab995a\",\"policyHolderId\":73,\"accidentIdx\":1,\"yearMonth\":\"2015-03-00T00:00:00-0800\",\"incidentType\":\"MINOR\",\"tsEvent\":\"1453492695.320\",\"driverIdx\":1,\"source\":\"web014.be.prod.iad1.ckint.io\",\"schemaName\":\"Accident.json\",\"version\":\"3c4eb462888500d9f161b4d637123e72\",\"ts\":\"2015-01-07T14:22:35.863513-08:00\"}", fakeKMI, 0)
+    val singleRecord1 = new KafkaMessageWithId[String,String]("testKey", "{\"dwNumericId\":5446427592603205633,\"traceId\":\"3a47bfd7-f050-424a-8bb3-1e84a3ab995a\",\"policyHolderId\":73,\"accidentIdx\":1,\"yearMonth\":\"2015-03-00T00:00:00-0800\",\"incidentType\":\"MINOR\",\"tsEvent\":\"1453492695.320\",\"driverIdx\":1,\"source\":\"web014.be.prod.iad1.ckint.io\",\"schemaName\":\"Accident.json\",\"version\":\"3c4eb462888500d9f161b4d637123e72\",\"ts\":\"2015-01-07T14:22:35.863513-08:00\"}", fakeKMI)
     val year = mGCSWriter.getSubPartition(singleRecord1.value).getYear
     val month = mGCSWriter.getSubPartition(singleRecord1.value).getMonth
     val day = mGCSWriter.getSubPartition(singleRecord1.value).getDay
     data += singleRecord1
-    data += new KafkaMessageWithId[String,String]("testKey", "test 2nd line", fakeKMI, 0)
-    data += new KafkaMessageWithId[String,String]("testKey", "test 3rd line", fakeKMI, 0)
-    data += new KafkaMessageWithId[String,String]("testKey", "test 4th line", fakeKMI, 0)
-    val result: WriterClientMeta = mGCSWriter.write(testTopicPartition, 1234567, Some(new GCSSubPartition(year,month,day,"","","")), data.toIterator)
+    data += new KafkaMessageWithId[String,String]("testKey", "test 2nd line", fakeKMI)
+    data += new KafkaMessageWithId[String,String]("testKey", "test 3rd line", fakeKMI)
+    data += new KafkaMessageWithId[String,String]("testKey", "test 4th line", fakeKMI)
+    val subPartition = SubPartition(OffsetRange(testTopicPartition, 1234567, 2345678), Some(new GCSSubPartition(year,month,day,"","","")))
+    val result: WorkerMeta = mGCSWriter.write(subPartition, data.toIterator)
 
 
 

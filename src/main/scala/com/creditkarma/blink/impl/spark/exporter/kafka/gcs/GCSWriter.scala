@@ -1,17 +1,15 @@
-package com.creditkarma.blink.impl.writer
+package com.creditkarma.blink.impl.spark.exporter.kafka.gcs
 
 import java.io.{ByteArrayInputStream, InputStream, SequenceInputStream}
 import java.util
 
-import com.creditkarma.blink.impl.transformer.KafkaMessageWithId
+import com.creditkarma.blink.impl.spark.exporter.kafka.{ExportWorker, KafkaMessageWithId, SubPartition, WorkerMeta}
 import com.creditkarma.blink.utils.gcs.GCSUtils
-import com.creditkarma.blink.utils.writer.{CkAutoTsMessageParser, CkAutoTsMessageParserOld}
+import com.creditkarma.blink.utils.writer.CkAutoTsMessageParser
 import com.google.api.client.http.InputStreamContent
 import com.google.api.services.storage.model.StorageObject
-import org.apache.kafka.common.TopicPartition
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable
 
 
 /**
@@ -29,7 +27,7 @@ class GCSWriter(
                       metaData:String,
                       cacheControl:String
 
-                    ) extends KafkaPartitionWriter[String,String,GCSSubPartition]{
+                    ) extends ExportWorker[String,String,GCSSubPartition]{
   override def useSubPartition: Boolean = true
 
   private val defaulPartitionYear:String = "1969"
@@ -47,8 +45,13 @@ try {
 }
   }
 
-  override def write(topicPartition: TopicPartition, firstOffset: Long, subPartition: Option[GCSSubPartition],
-                     data: Iterator[KafkaMessageWithId[String, String]]): WriterClientMeta = {
+  override def write(partition: SubPartition[GCSSubPartition],
+                     data: Iterator[KafkaMessageWithId[String, String]]): WorkerMeta = {
+
+    def topic = partition.topic
+    def topicPartition = partition.topicPartition
+    def subPartition = partition.subPartition
+    def firstOffset = partition.fromOffset
 
     var lines = 0L
     var bytes = 0L
@@ -93,14 +96,14 @@ try {
           )
           .objects.insert(// insert object
           bucketName, // gcs bucket
-          new StorageObject().setMetadata(metaData).setCacheControl(cacheControl).setName(s"${topicPartition.topic()}/${topicPartition.partition}/${subPartition.get.getYear}/${subPartition.get.getMonth}/${subPartition.get.getDay}/${firstOffset}.json"), // gcs object name
+          new StorageObject().setMetadata(metaData).setCacheControl(cacheControl).setName(s"${topicPartition.topic()}/${topicPartition.partition}/${subPartition.map(_.getYear).getOrElse("")}/${subPartition.get.getMonth}/${subPartition.get.getDay}/${firstOffset}.json"), // gcs object name
           mInputStreamContent
         )
       request.getMediaHttpUploader.setDirectUploadEnabled(true)
       request.execute()
-      return new WriterClientMeta(lines,bytes,true)
+      return new WorkerMeta(lines,bytes,true)
     } catch {
-      case e:Exception => {return new WriterClientMeta(lines,bytes,false)}
+      case e:Exception => {return new WorkerMeta(lines,bytes,false)}
       }
   }
 

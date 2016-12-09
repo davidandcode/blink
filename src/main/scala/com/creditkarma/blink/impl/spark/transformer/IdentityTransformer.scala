@@ -1,4 +1,4 @@
-package com.creditkarma.blink.impl.transformer
+package com.creditkarma.blink.impl.spark.transformer
 
 import com.creditkarma.blink.base.{BufferedData, Transformer}
 

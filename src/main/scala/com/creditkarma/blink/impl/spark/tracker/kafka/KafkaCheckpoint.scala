@@ -1,4 +1,4 @@
-package com.creditkarma.blink.impl.checkpoint
+package com.creditkarma.blink.impl.spark.tracker.kafka
 
 import com.creditkarma.blink.base.Checkpoint
 import org.apache.kafka.common.TopicPartition

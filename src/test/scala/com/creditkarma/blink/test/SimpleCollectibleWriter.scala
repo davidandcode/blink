@@ -1,8 +1,5 @@
 package com.creditkarma.blink.test
-import com.creditkarma.blink.client.ClientModuleType
-import com.creditkarma.blink.impl.transformer.KafkaMessageWithId
-import com.creditkarma.blink.impl.writer.{KafkaPartitionWriter, WriterClientMeta}
-import org.apache.kafka.common.TopicPartition
+import com.creditkarma.blink.impl.spark.exporter.kafka.{KafkaMessageWithId, ExportWorker, SubPartition, WorkerMeta}
 
 import scala.collection.mutable.ListBuffer
 
@@ -21,15 +18,19 @@ object SimpleCollectibleWriter extends CollectibleTestWriter[String, String, Str
     *
     * @return
     */
-  override def writer: KafkaPartitionWriter[String, String, String] = new KafkaPartitionWriter[String, String, String] {
+  override def writer: ExportWorker[String, String, String] = new ExportWorker[String, String, String] {
 
     override def useSubPartition: Boolean = false
 
     // won't be called if useSubPartition is false
     override def getSubPartition(payload: String): String = ""
 
-    override def write(topicPartition: TopicPartition, firstOffset: Long, subPartition: Option[String], data: Iterator[KafkaMessageWithId[String, String]]): WriterClientMeta = {
+    override def write(partition: SubPartition[String],
+                       data: Iterator[KafkaMessageWithId[String, String]]): WorkerMeta = {
       // make sure message offset is in order here
+      def firstOffset = partition.fromOffset
+      def topicPartition = partition.topicPartition
+      def subPartition = partition.subPartition
       var records = 0
       var bytes = 0
       var previousOffset: Option[Long] = None
@@ -41,7 +42,6 @@ object SimpleCollectibleWriter extends CollectibleTestWriter[String, String, Str
         assert(previousOffset.isEmpty || previousOffset.get < message.kmId.offset) // this is not neccesarily true after groupBy
         assert(firstOffset <= message.kmId.offset)
         assert(message.kmId.topicPartition == topicPartition)
-        assert(message.batchFirstOffset == firstOffset)
         subPartition match {
           case Some(sp) =>
             assert(getSubPartition(message.value) == sp)
@@ -49,7 +49,7 @@ object SimpleCollectibleWriter extends CollectibleTestWriter[String, String, Str
         }
         previousOffset = Option(message.kmId.offset)
       }
-      WriterClientMeta(records, bytes, true)
+      WorkerMeta(records, bytes, true)
     }
 
     private def addMessageToClobalCollector(message: KafkaMessageWithId[String, String]) =

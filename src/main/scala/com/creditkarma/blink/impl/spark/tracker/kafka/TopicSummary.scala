@@ -1,4 +1,4 @@
-package com.creditkarma.blink.impl.checkpoint
+package com.creditkarma.blink.impl.spark.tracker.kafka
 
 import org.apache.spark.streaming.kafka010.OffsetRange
 

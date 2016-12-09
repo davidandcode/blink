@@ -22,10 +22,10 @@ import scala.util.{Failure, Success, Try}
 final class Portal[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta, C], Delta]
 (
   val id: String, val tickTime: Long,
-  reader: Reader[I, C, Delta, _],
+  reader: Importer[I, C, Delta, _],
   transformer: Transformer[I, O],
-  writer: Writer[O, C, Delta, _],
-  stateTracker: CheckpointService[C]
+  writer: Exporter[O, C, Delta, _],
+  stateTracker: StateTracker[C]
 ) extends CoreModule with PortalController{
 
   /**
@@ -191,11 +191,11 @@ final class Portal[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta, 
       case TimeMode.Origin =>
         val checkpoint = reader.checkpointFromEarliest()
         updateStatus(new StatusOK(s"rewind checkpoint to earliest: cp=[${checkpoint}]"))
-        stateTracker.commitCheckpoint(checkpoint)
+        stateTracker.persist(checkpoint)
       case TimeMode.Now =>
         val checkpoint = reader.checkpointFromNow()
         updateStatus(new StatusOK(s"mark current position: cp=[${checkpoint}]"))
-        stateTracker.commitCheckpoint(checkpoint)
+        stateTracker.persist(checkpoint)
       case TimeMode.MemoryOrNow =>
         stateTracker.lastCheckpoint() match {
           case Some(checkpoint) =>
@@ -203,7 +203,7 @@ final class Portal[I <: BufferedData, O <: BufferedData, C <: Checkpoint[Delta, 
           case None =>
             val checkpoint = reader.checkpointFromNow()
             updateStatus(new StatusOK(s"not checkpoint found, mark current position: cp=[${checkpoint}]"))
-            stateTracker.commitCheckpoint(checkpoint)
+            stateTracker.persist(checkpoint)
         }
       case TimeMode.MemoryOrFail =>
         stateTracker.lastCheckpoint() match {
@@ -247,8 +247,8 @@ object OperationMode extends Enumeration {
   * In addition to bridging across space, a portal can also go back in time.
   * The supported mode are
   * 1. Origin: go back as far as possible, use for back-filling
-  * 2. Now: start from the current head of [[Reader]] source
-  * 4. MemoryOrNow: start from the last memorized checkpointed position by [[CheckpointService]]. If not exists, start from now.
+  * 2. Now: start from the current head of [[Importer]] source
+  * 4. MemoryOrNow: start from the last memorized checkpointed position by [[StateTracker]]. If not exists, start from now.
   */
 object TimeMode extends Enumeration {
   val Origin, Now, MemoryOrFail, MemoryOrNow = Value

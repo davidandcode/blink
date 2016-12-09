@@ -3,14 +3,14 @@ package com.creditkarma.blink.base
 import scala.util.{Failure, Success, Try}
 
 
-trait ReadMeta[D] {
+trait ImportMeta[D] {
   def delta: D
   def metrics: Metrics
   def readTime: Long
   def shouldFlush: Boolean
 }
 
-trait Reader[B <: BufferedData, C <: Checkpoint[D, C], D, M <: ReadMeta[D]] extends CoreModule {
+trait Importer[B <: BufferedData, C <: Checkpoint[D, C], D, M <: ImportMeta[D]] extends CoreModule {
   override def moduleType: ModuleType.Value = ModuleType.Reader
 
   def start(): Unit = {}

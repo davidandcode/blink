@@ -1,20 +1,21 @@
-package com.creditkarma.blink.impl.checkpointservice
-
+package com.creditkarma.blink.impl.spark.tracker.kafka
 
 import java.util.concurrent.CountDownLatch
 
-import com.creditkarma.blink.base.{Checkpoint, CheckpointService, StatusOK}
-import com.creditkarma.blink.impl.checkpoint.KafkaCheckpoint
+import com.creditkarma.blink.base.{StateTracker, StatusOK}
 import org.apache.commons.lang3.SerializationUtils
 import org.apache.spark.streaming.kafka010.OffsetRange
 import org.apache.zookeeper._
+import org.apache.zookeeper.data.Stat
 
 import scala.util.{Failure, Success, Try}
 
 /**
-  * Created by shengwei.wang on 11/19/16.
+  * Persist Kafka checkpoint into Zookeeper.
+  * There is a limit of 1M data per zookeeper node.
+  * It is not as scalable as using kafka offset commit API to save checkpoints into Kafka topics.
   */
-class ZooKeeperCPService(hostport: String) extends CheckpointService[KafkaCheckpoint] {
+class ZooKeeperStateTracker(hostPort: String) extends StateTracker[KafkaCheckpoint] {
 
   private val PREFIX = "LASTTIME"
   private val timeOut = 3000
@@ -22,11 +23,12 @@ class ZooKeeperCPService(hostport: String) extends CheckpointService[KafkaCheckp
   private def zkNodePath = "/" + PREFIX + portalId // portalId is not available at construction time, so must use def not val
 
   private def zkOpen = {
+    updateStatus(new StatusOK(s"ZooKeeper client connecting $hostPort"))
     val connected = new CountDownLatch(1)
-    val zookeeper = new ZooKeeper(hostport, timeOut, new Watcher {
+    val zookeeper = new ZooKeeper(hostPort, timeOut, new Watcher {
       override def process(event: WatchedEvent): Unit = {
         connected.countDown()
-        updateStatus(new StatusOK(s"ZooKeeper client connected to $hostport"))
+        updateStatus(new StatusOK(s"ZooKeeper client connected to $hostPort"))
       }
     })
     connected.await()
@@ -34,7 +36,7 @@ class ZooKeeperCPService(hostport: String) extends CheckpointService[KafkaCheckp
   }
 
   private def zkClose(): Unit = {
-    updateStatus(new StatusOK(s"closing ZooKeeper client from $hostport"))
+    updateStatus(new StatusOK(s"closing ZooKeeper client from $hostPort"))
     _zkClient.foreach(_.close())
     _zkClient = None
     updateStatus(new StatusOK(s"ZooKeeper client closed"))
@@ -57,45 +59,34 @@ class ZooKeeperCPService(hostport: String) extends CheckpointService[KafkaCheckp
   }
 
   private def loadDataFromZK(): Array[Byte] = {
-    val data = zkClient.getData(zkNodePath, false, null)
-    updateStatus(new StatusOK(s"retrieved data: ${data.size} bytes"))
+    val stat = new Stat()
+    val data = zkClient.getData(zkNodePath, false, stat)
+    updateStatus(new StatusOK(s"retrieved data: ${data.size} bytes. stat=$stat"))
     data
   }
 
   private def nodeExists(): Boolean = {
     Try(zkClient.exists(zkNodePath, false)) match {
-      case Success(stats) => stats != null
+      case Success(stats) => Option(stats).nonEmpty // this is same as testing stats!=null but makes scalastyle check happy
       case Failure(f) => throw new Exception(s"Failed to query node", f)
     }
   }
 
 
-  // cache checkpoint in memory and load only when initializing
-  private var cachedCheckpoint: Option[KafkaCheckpoint] = None
-
-  override def commitCheckpoint(cp: KafkaCheckpoint): Unit = {
+  override def persist(cp: KafkaCheckpoint): Unit = {
     saveDataToZK(SerializationUtils.serialize(cp.timestampedOffsetRanges.toArray))
-    cachedCheckpoint = Some(cp)
     zkClose()
   }
 
-  // this is for integration test to turn off checkpoint caching, so loading checkpoint back from zk storage is tested
-  var useCache: Boolean = true
-
   override def lastCheckpoint(): Option[KafkaCheckpoint] = {
-    if(useCache && cachedCheckpoint != None){
-      cachedCheckpoint
+    if (nodeExists) {
+      val data = loadDataFromZK
+      zkClose()
+      Some(new KafkaCheckpoint(
+        SerializationUtils.deserialize(data)
+          .asInstanceOf[Array[(OffsetRange, Long)]])
+      )
     }
-    else if(nodeExists) {
-        val data = loadDataFromZK
-        zkClose()
-        cachedCheckpoint =
-          Some(
-          new KafkaCheckpoint(
-            SerializationUtils.deserialize(data)
-              .asInstanceOf[Array[(OffsetRange, Long)]]))
-        cachedCheckpoint
-      }
     else {
       None
     }

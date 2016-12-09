@@ -1,7 +1,6 @@
 package com.creditkarma.blink.test
 
-import com.creditkarma.blink.impl.transformer.KafkaMessageWithId
-import com.creditkarma.blink.impl.writer.{KafkaPartitionWriter, KafkaSparkRDDPartitionedWriter}
+import com.creditkarma.blink.impl.spark.exporter.kafka.{KafkaMessageWithId, ExportWorker}
 
 /**
   * This is for testing purpose, to collect what the single threaded writer have
@@ -12,7 +11,7 @@ trait CollectibleTestWriter[Key, Value, Partition] {
     * This is the writer being tested
     * @return
     */
-  def writer: KafkaPartitionWriter[Key, Value, Partition]
+  def writer: ExportWorker[Key, Value, Partition]
 
   /**
     * This must be implemented based on knowledge of writer to collect information back
