@@ -1,5 +1,5 @@
 package com.creditkarma.blink.test
-import com.creditkarma.blink.impl.spark.exporter.kafka.{KafkaMessageWithId, KafkaPartitionWriter, KafkaSubPartition, WriterClientMeta}
+import com.creditkarma.blink.impl.spark.exporter.kafka.{KafkaMessageWithId, ExportWorker, SubPartition, WorkerMeta}
 
 import scala.collection.mutable.ListBuffer
 
@@ -18,15 +18,15 @@ object SimpleCollectibleWriter extends CollectibleTestWriter[String, String, Str
     *
     * @return
     */
-  override def writer: KafkaPartitionWriter[String, String, String] = new KafkaPartitionWriter[String, String, String] {
+  override def writer: ExportWorker[String, String, String] = new ExportWorker[String, String, String] {
 
     override def useSubPartition: Boolean = false
 
     // won't be called if useSubPartition is false
     override def getSubPartition(payload: String): String = ""
 
-    override def write(partition: KafkaSubPartition[String],
-                       data: Iterator[KafkaMessageWithId[String, String]]): WriterClientMeta = {
+    override def write(partition: SubPartition[String],
+                       data: Iterator[KafkaMessageWithId[String, String]]): WorkerMeta = {
       // make sure message offset is in order here
       def firstOffset = partition.fromOffset
       def topicPartition = partition.topicPartition
@@ -49,7 +49,7 @@ object SimpleCollectibleWriter extends CollectibleTestWriter[String, String, Str
         }
         previousOffset = Option(message.kmId.offset)
       }
-      WriterClientMeta(records, bytes, true)
+      WorkerMeta(records, bytes, true)
     }
 
     private def addMessageToClobalCollector(message: KafkaMessageWithId[String, String]) =

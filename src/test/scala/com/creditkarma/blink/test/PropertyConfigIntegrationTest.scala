@@ -2,7 +2,7 @@ package com.creditkarma.blink.test
 
 import com.creditkarma.blink.MainApp
 import com.creditkarma.blink.factory.KafkaStringPartitionWriterCreator
-import com.creditkarma.blink.impl.spark.exporter.kafka.KafkaPartitionWriter
+import com.creditkarma.blink.impl.spark.exporter.kafka.ExportWorker
 import org.apache.log4j.{Level, LogManager}
 import org.scalatest.{BeforeAndAfterAll, WordSpec}
 
@@ -48,7 +48,7 @@ class PropertyConfigIntegrationTest extends WordSpec with BeforeAndAfterAll with
 }
 
 class TestWriterCreator extends KafkaStringPartitionWriterCreator {
-  override def writer: KafkaPartitionWriter[String, String, String] = {
+  override def writer: ExportWorker[String, String, String] = {
     SimpleCollectibleWriter.writer
   }
 }

@@ -5,7 +5,6 @@ package com.creditkarma.blink.base
   */
 trait Instrumentable {
 
-  @transient
   private val _instrumentors: scala.collection.mutable.Map[String, Instrumentor] = scala.collection.mutable.Map.empty
 
   private[base] def instrumentors = _instrumentors.values

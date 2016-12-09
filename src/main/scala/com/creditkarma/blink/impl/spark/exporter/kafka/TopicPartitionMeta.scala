@@ -5,7 +5,7 @@ import com.creditkarma.blink.impl.spark.importer.kafka.{KafkaMetricDimension, Ka
 import org.apache.kafka.common.TopicPartition
 import org.apache.spark.streaming.kafka010.OffsetRange
 
-case class KafkaTopicPartitionMeta[P](val offsetRange: OffsetRange) extends Metric {
+case class TopicPartitionMeta[P](val offsetRange: OffsetRange) extends Metric {
   def topicPartition: TopicPartition = offsetRange.topicPartition()
   def topic: String = offsetRange.topic
   def partition: Int = offsetRange.partition
@@ -15,14 +15,14 @@ case class KafkaTopicPartitionMeta[P](val offsetRange: OffsetRange) extends Metr
     * Aggregation is called in the context of SparkRDD groupBy, and there is no need to check duplication
     * @param meta
     */
-  def aggregate(meta: KafkaSubPartitionMeta[P]): Unit = {
+  def aggregate(meta: SubPartitionMeta[P]): Unit = {
     _partitions += 1
-    _clientConfirmedRecords += meta.clientMeta.records
-    _clientConfirmedBytes += meta.clientMeta.bytes
-    if(meta.clientMeta.complete){
+    _clientConfirmedRecords += meta.workerMeta.records
+    _clientConfirmedBytes += meta.workerMeta.bytes
+    if(meta.workerMeta.complete){
       _completedPartitions += 1
-      _completedBytes += meta.clientMeta.bytes
-      _completedRecords += meta.clientMeta.records
+      _completedBytes += meta.workerMeta.bytes
+      _completedRecords += meta.workerMeta.records
     }
 
   }
