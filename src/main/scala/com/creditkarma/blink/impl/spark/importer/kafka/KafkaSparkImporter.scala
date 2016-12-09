@@ -168,7 +168,7 @@ class KafkaImportMeta
   override def shouldFlush: Boolean = delta.nonEmpty
 }
 
-class KafkaSparkImporter[K, V](val kafkaParams: Map[String, Object])
+class KafkaSparkImporter[K, V](kafkaParams: Map[String, Object])
   extends Importer[SparkRDD[ConsumerRecord[K, V]], KafkaCheckpoint, Seq[OffsetRange], KafkaImportMeta] {
 
   private val DefaultFlushInterval: Long = 1000
@@ -204,7 +204,12 @@ class KafkaSparkImporter[K, V](val kafkaParams: Map[String, Object])
     flushInterval = t
   }
 
-  def kafkaConsumer: KafkaConsumer[K, V] = {
+  /**
+    * cached consumer
+    */
+  private var _kafkaConsumer: Option[KafkaConsumer[K, V]] = None
+
+  private def kafkaConsumer: KafkaConsumer[K, V] = {
     _kafkaConsumer match {
       case Some(kc) => kc
       case None =>
@@ -222,14 +227,18 @@ class KafkaSparkImporter[K, V](val kafkaParams: Map[String, Object])
     }
   }
 
-  override def close(): Unit = {
+  private def closeConsumer(): Unit = {
     _kafkaConsumer match {
       case Some(kc) =>
-        updateStatus(new StatusOK(s"Closing kafka consumer in reader $this"))
+        updateStatus(new StatusOK(s"Closing kafka consumer"))
         kc.close()
         _kafkaConsumer = None
       case None =>
     }
+  }
+
+  override def close(): Unit = {
+    closeConsumer()
   }
 
   private def listTopicPartitions(): Seq[TopicPartition] = {
@@ -276,10 +285,6 @@ class KafkaSparkImporter[K, V](val kafkaParams: Map[String, Object])
       meta
       )
   }
-  /**
-    * private internal mutable states
-    */
-  private var _kafkaConsumer: Option[KafkaConsumer[K, V]] = None
 
   /**
     * Kafka reader can be configured to read topics with several approach
