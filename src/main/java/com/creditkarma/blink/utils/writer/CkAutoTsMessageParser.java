@@ -22,6 +22,18 @@ public class CkAutoTsMessageParser {
     static final String TimestampSampleMin = "2015-01-07T14:22:35-0800";
     static final int TimestampSampleMaxLength = TimestampSampleMax.length();
     static final int TimestampSampleMinLength = TimestampSampleMin.length();
+    static final int YEAR_START_INDEX = 0;
+    static final int YEAR_END_INDEX = 4;
+    static final int MONTH_START_INDEX = 5;
+    static final int MONTH_END_INDEX = 7;
+    static final int DAY_START_INDEX = 8;
+    static final int DAY_END_INDEX = 10;
+    static final int HOUR_START_INDEX = 11;
+    static final int HOUR_END_INDEX = 13;
+    static final int MINUTE_START_INDEX = 14;
+    static final int MINUTE_END_INDEX = 16;
+    static final int SECOND_START_INDEX = 17;
+    static final int SECOND_END_INDEX = 19;
 
     private static final Pattern UnparseableTsPattern = Pattern.compile("(\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2})(.?)(\\d{0,6}?)([+-]\\d{2})(:?)(\\d{2})");
     private static final String ParseableTsFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ";
@@ -63,7 +75,6 @@ public class CkAutoTsMessageParser {
         timestampName = tsName;
         TimestampFormatWithMicrosecond = ifWithMicro;
         enforcedParsingFields = enforcedFields;
-
         geneticEnforcedParsedFields = new HashSet<String>();
         specialEnforcedParsedFields = new HashSet<String>();
         if(enforcedParsingFields != null) {
@@ -88,7 +99,6 @@ public class CkAutoTsMessageParser {
         TsParseResult result = null;
 
         if (jsonObject != null) {
-
             for(String col: jsonObject.keySet()) {
                 String tableNameAndColumnKey = kafkaTopic + "." + col;
                 Object fieldValue = jsonObject.get(col);
@@ -96,7 +106,6 @@ public class CkAutoTsMessageParser {
                 if (fieldValue != null && fieldValue instanceof String) {
                     String fieldStr = (String) fieldValue;
                     if(fieldStr != null && fieldStr.trim().length() > 0) {
-
                         TsParseResult tsParseRs = null;
                         boolean enforcedParse = geneticEnforcedParsedFields.contains(col)
                                 || specialEnforcedParsedFields.contains(tableNameAndColumnKey);
@@ -150,22 +159,18 @@ public class CkAutoTsMessageParser {
                     else
                         g3subseconds =  String.format("%03d", microseconds) ;
                     parseableTsStr = m.group(1) + m.group(2) + g3subseconds + m.group(4) + m.group(6);
-
                 }
                 else {
                     parseableTsStr = m.group(1) + ".0" + m.group(4) + m.group(6);
-
                 }
 
                 try {
-
-                year = parseableTsStr.substring(0,4);
-                month = parseableTsStr.substring(5,7);
-                day = parseableTsStr.substring(8,10);
-                hour = parseableTsStr.substring(11,13);
-                minute = parseableTsStr.substring(14,16);
-                second = parseableTsStr.substring(17,19);
-
+                year = parseableTsStr.substring(YEAR_START_INDEX,YEAR_END_INDEX);
+                month = parseableTsStr.substring(MONTH_START_INDEX,MONTH_END_INDEX);
+                day = parseableTsStr.substring(DAY_START_INDEX,DAY_END_INDEX);
+                hour = parseableTsStr.substring(HOUR_START_INDEX,HOUR_END_INDEX);
+                minute = parseableTsStr.substring(MINUTE_START_INDEX,MONTH_END_INDEX);
+                second = parseableTsStr.substring(SECOND_START_INDEX,SECOND_END_INDEX);
                     ts = new SimpleDateFormat(ParseableTsFormat).parse(parseableTsStr);
                 } catch (Exception e) {
                     throw e;
@@ -174,7 +179,6 @@ public class CkAutoTsMessageParser {
         } else {
             throw  new Exception();
         }
-
         return new TsParseResult(ts, containsColon,year,month,day,hour,minute,second);
     }
 
