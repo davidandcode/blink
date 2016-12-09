@@ -6,6 +6,7 @@ import com.creditkarma.blink.base.{StateTracker, StatusOK}
 import org.apache.commons.lang3.SerializationUtils
 import org.apache.spark.streaming.kafka010.OffsetRange
 import org.apache.zookeeper._
+import org.apache.zookeeper.data.Stat
 
 import scala.util.{Failure, Success, Try}
 
@@ -58,14 +59,15 @@ class ZooKeeperStateTracker(hostPort: String) extends StateTracker[KafkaCheckpoi
   }
 
   private def loadDataFromZK(): Array[Byte] = {
-    val data = zkClient.getData(zkNodePath, false, null)
-    updateStatus(new StatusOK(s"retrieved data: ${data.size} bytes"))
+    val stat = new Stat()
+    val data = zkClient.getData(zkNodePath, false, stat)
+    updateStatus(new StatusOK(s"retrieved data: ${data.size} bytes. stat=$stat"))
     data
   }
 
   private def nodeExists(): Boolean = {
     Try(zkClient.exists(zkNodePath, false)) match {
-      case Success(stats) => stats != null
+      case Success(stats) => Option(stats).nonEmpty // this is same as testing stats!=null but makes scalastyle check happy
       case Failure(f) => throw new Exception(s"Failed to query node", f)
     }
   }
