@@ -1,6 +1,10 @@
 package com.creditkarma.blink.test
 
-import com.creditkarma.blink.impl.writer.{GCSSubPartition, GCSWriter}
+import com.creditkarma.blink.impl.transformer.{KafkaMessageId, KafkaMessageWithId}
+import com.creditkarma.blink.impl.writer.{GCSSubPartition, GCSWriter, WriterClientMeta}
+import org.apache.kafka.common.TopicPartition
+
+import scala.collection.mutable
 
 /**
   * Created by shengwei.wang on 12/7/16.
@@ -8,29 +12,27 @@ import com.creditkarma.blink.impl.writer.{GCSSubPartition, GCSWriter}
 object GCSWriterUnitTests {
 
 
-  def main(args:Array[String]): Unit ={
+  def main(args: Array[String]): Unit = {
 
 
-
-    val mGCSWriter: GCSWriter =  new GCSWriter(
-                     "ts",
-                     true,
-                     "",
-                     "",
-                     0,
-                     0,
-                     "dataeng",
-                     "",
-                     "",
-                     "",
-                     ""
-                   )
+    val mGCSWriter: GCSWriter = new GCSWriter(
+      "ts",
+      true,
+      "",
+      "/Users/shengwei.wang/projects/DataScience-f7d364638ad4.json",
+      10000,
+      10000,
+      "dataeng_test",
+      "application/json",
+      "",
+      ""
+    )
 
 
     //val testString:String = "2015-01-07T14:22:35.863513-08:00" //"2015-03-00T00:00:00-0800"
-    val testString:String = "{\"dwNumericId\":5446427592603205633,\"traceId\":\"3a47bfd7-f050-424a-8bb3-1e84a3ab995a\",\"policyHolderId\":73,\"accidentIdx\":1,\"yearMonth\":\"2015-03-00T00:00:00-0800\",\"incidentType\":\"MINOR\",\"tsEvent\":\"1453492695.320\",\"driverIdx\":1,\"source\":\"web014.be.prod.iad1.ckint.io\",\"schemaName\":\"Accident.json\",\"version\":\"3c4eb462888500d9f161b4d637123e72\",\"ts\":\"2015-01-07T14:22:35.863513-08:00\"}"
+    val testString: String = "{\"dwNumericId\":5446427592603205633,\"traceId\":\"3a47bfd7-f050-424a-8bb3-1e84a3ab995a\",\"policyHolderId\":73,\"accidentIdx\":1,\"yearMonth\":\"2015-03-00T00:00:00-0800\",\"incidentType\":\"MINOR\",\"tsEvent\":\"1453492695.320\",\"driverIdx\":1,\"source\":\"web014.be.prod.iad1.ckint.io\",\"schemaName\":\"Accident.json\",\"version\":\"3c4eb462888500d9f161b4d637123e72\",\"ts\":\"2015-01-07T14:22:35.863513-08:00\"}"
 
-    val mGCSSubPartition:GCSSubPartition = mGCSWriter.getSubPartition(testString)
+    val mGCSSubPartition: GCSSubPartition = mGCSWriter.getSubPartition(testString)
 
     println(mGCSSubPartition.getYear)
     println(mGCSSubPartition.getMonth)
@@ -39,9 +41,9 @@ object GCSWriterUnitTests {
     println(mGCSSubPartition.getMinute)
     println(mGCSSubPartition.getSecond)
 
-    val testString2:String = ""
+    val testString2: String = "{\"dwNumericId\":5446427592603205633,\"traceId\":\"3a47bfd7-f050-424a-8bb3-1e84a3ab995a\",\"policyHolderId\":73,\"accidentIdx\":1,\"yearMonth\":\"2015-03-00T00:00:00-0800\",\"incidentType\":\"MINOR\",\"tsEvent\":\"1453492695.320\",\"driverIdx\":1,\"source\":\"web014.be.prod.iad1.ckint.io\",\"schemaName\":\"Accident.json\",\"version\":\"3c4eb462888500d9f161b4d637123e72\",\"ts\":\"1991-01-07T14:22:35.8613-0800\"}"
 
-    val mGCSSubPartition2:GCSSubPartition = mGCSWriter.getSubPartition(testString2)
+    val mGCSSubPartition2: GCSSubPartition = mGCSWriter.getSubPartition(testString2)
 
     println(mGCSSubPartition2.getYear)
     println(mGCSSubPartition2.getMonth)
@@ -50,8 +52,32 @@ object GCSWriterUnitTests {
     println(mGCSSubPartition2.getMinute)
     println(mGCSSubPartition2.getSecond)
 
+
+    val testString3: String = "{\"db3-10:00-0800\",iad1.ckint.io\",\"schemaName\":\"Accident.json\",\",\"ts\":\"1991-01-07T14:22:35.8613-0800\"}"
+
+    val mGCSSubPartition3: GCSSubPartition = mGCSWriter.getSubPartition(testString3)
+
+    println(mGCSSubPartition3.getYear)
+    println(mGCSSubPartition3.getMonth)
+    println(mGCSSubPartition3.getDay)
+    println(mGCSSubPartition3.getHour)
+    println(mGCSSubPartition3.getMinute)
+    println(mGCSSubPartition3.getSecond)
+
+
+    val testTopicPartition: TopicPartition = new TopicPartition("testTopic", 5)
+    val fakeKMI = KafkaMessageId(testTopicPartition,1)
+    val data: mutable.MutableList[KafkaMessageWithId[String, String]] = new mutable.MutableList[KafkaMessageWithId[String, String]]
+
+    val singleRecord1 = new KafkaMessageWithId[String,String]("testKey", "{\"dwNumericId\":5446427592603205633,\"traceId\":\"3a47bfd7-f050-424a-8bb3-1e84a3ab995a\",\"policyHolderId\":73,\"accidentIdx\":1,\"yearMonth\":\"2015-03-00T00:00:00-0800\",\"incidentType\":\"MINOR\",\"tsEvent\":\"1453492695.320\",\"driverIdx\":1,\"source\":\"web014.be.prod.iad1.ckint.io\",\"schemaName\":\"Accident.json\",\"version\":\"3c4eb462888500d9f161b4d637123e72\",\"ts\":\"2015-01-07T14:22:35.863513-08:00\"}", fakeKMI, 0)
+    val year = mGCSWriter.getSubPartition(singleRecord1.value).getYear
+    val month = mGCSWriter.getSubPartition(singleRecord1.value).getMonth
+    val day = mGCSWriter.getSubPartition(singleRecord1.value).getDay
+    data += singleRecord1
+    val result: WriterClientMeta = mGCSWriter.write(testTopicPartition, 1234567, Some(new GCSSubPartition(year,month,day,"","","")), data.toIterator)
+
+
+
+
   }
-
-
-
 }

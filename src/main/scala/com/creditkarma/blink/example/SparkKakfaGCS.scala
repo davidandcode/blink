@@ -164,22 +164,3 @@ object SparkKafkaGCS {
   }
 }
 
-
-class IteratorInputStream(input: Iterator[String]) extends InputStream {
-
-  var _currentString: String = null
-  var _currentIndex = 0
-  override def read(): Int = {
-    if(_currentString == null && input.hasNext){
-      _currentString = input.next()
-      _currentIndex = 0
-    }
-
-    if(input.hasNext){
-      input.next().toInt
-    }
-    else{
-      -1
-    }
-  }
-}
