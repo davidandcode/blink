@@ -3,11 +3,8 @@ package com.creditkarma.blink.factory
 import com.creditkarma.blink.PortalConstructor
 import com.creditkarma.blink.base.PortalController
 import com.creditkarma.blink.impl.spark.exporter.kafka.ExportWorker
-<<<<<<< HEAD
 import com.creditkarma.blink.impl.spark.exporter.kafka.gcs.GCSSubPartition
-=======
 import com.creditkarma.blink.impl.spark.importer.kafka.KafkaTopicFilter
->>>>>>> master
 import com.creditkarma.blink.impl.spark.tracker.kafka.ZooKeeperStateTracker
 import com.creditkarma.blink.instrumentation.LogInfoInstrumentor
 import kafka.consumer.{Blacklist, Whitelist}
@@ -65,17 +62,7 @@ trait KafkaExportWorkerCreator[K, V, P] extends SettableProperties {
   def writer: ExportWorker[K, V, P]
 }
 
-<<<<<<< HEAD
-
 trait KafkaPartitionGCSWriterCreator extends SettableProperties {
   def writer: ExportWorker[String, String, GCSSubPartition]
 }
-=======
-/**
-  * In order to use different key value types, and custom subPartition data structure
-  * Must create the concrete class without type parameter, and without constructor parameter, to be used in configuration file.
-  * The corresponding ExportWorkerCreator must have consistent type parameter
-  */
-class KafkaImportPortalFactoryStringType extends KafkaImportPortalFactory[String, String, String]
 
->>>>>>> master
