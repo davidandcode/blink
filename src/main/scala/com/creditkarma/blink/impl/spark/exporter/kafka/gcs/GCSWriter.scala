@@ -47,14 +47,11 @@ class GCSWriter(
     result
   }
 
-  override def write(partition: SubPartition[GCSSubPartition],
-                     data: Iterator[KafkaMessageWithId[String, String]]): WorkerMeta = {
-
-    def topic = partition.topic
-    def topicPartitn = partition.partition
+  override def write(partition: SubPartition[GCSSubPartition], data: Iterator[KafkaMessageWithId[String, String]]): WorkerMeta = {
     def subPartition = partition.subPartition
-    def firstOffset = partition.fromOffset
-    def fileName = s"${topic}/${topicPartitn}/${subPartition.map(_.getYear).getOrElse(defaulPartitionYear)}/${subPartition.map(_.getMonth).getOrElse(defaulPartitionMonth)}/${subPartition.map(_.getDay).getOrElse(defaulPartitionDay)}/${firstOffset}.${outputFileExtension}"
+    def fileName = s"""${partition.topic}/${partition.partition}/
+         |${subPartition.map(_.getYear).getOrElse(defaulPartitionYear)}/${subPartition.map(_.getMonth).getOrElse(defaulPartitionMonth)}/
+         |${subPartition.map(_.getDay).getOrElse(defaulPartitionDay)}/${partition.fromOffset}.${outputFileExtension}""".stripMargin
 
     var lines = 0L
     var bytes = 0L
@@ -64,21 +61,18 @@ class GCSWriter(
       iteratorToStream(
         data.map {
           record: KafkaMessageWithId[String, String] => {
-            lines += 1
-            bytes += record.value.size
+            lines += 1 ; bytes += record.value.size
             record.value + "\n"
           }
         }
       )
     )
-
     val metaDataMap: util.HashMap[String,String] = new util.HashMap[String,String]()
     for(keyString <- metaData.split(";")){
       metaDataMap.put(keyString.split(",")(0),keyString.split(",")(1))
     }
 
-    val result=
-    Try (
+    val result = Try (
       {val request =
         GCSUtils
           .getService(// get gcs storage service
