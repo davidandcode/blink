@@ -22,11 +22,11 @@ class StatusError(val error: Throwable, msg: =>String = "") extends Status {
   override def message: String = s"$msg\n${Throwables.getStackTraceAsString(error)}"
 }
 
-class StatusUnexpected (val error: Throwable, msg: =>String) extends Status {
-  override val statusCode = StatusCode.Unexpected
+class StatusFatal(val error: Throwable, msg: =>String) extends Status {
+  override val statusCode = StatusCode.FATAL
   override def message: String = s"$msg\n${Throwables.getStackTraceAsString(error)}"
 }
 
 object StatusCode extends Enumeration {
-  val OK, ERROR, Unexpected = Value
+  val OK, ERROR, FATAL = Value
 }

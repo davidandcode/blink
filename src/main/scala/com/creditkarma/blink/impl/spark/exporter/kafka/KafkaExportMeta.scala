@@ -16,14 +16,29 @@ class KafkaExportMeta(meta: Seq[TopicPartitionMeta]) extends ExportMeta[Seq[Offs
     * Positive number indicates the entire flow is functioning and it will attempt the next cycle immediately.
     * @return
     */
-  override def outRecords: Long = meta.map(_.completedRecords).sum
+  override def outRecords: Long = completedTopicPartitions.map(_.completedRecords).sum
 
-  //TODO, integration test to make sure partially completed partitions are not checkpointed
-  private def completedOffsetRanges = meta.filter(_.allPartitionsCompleted).map(_.offsetRange)
   /**
     *
     * @return only checkpoint topicPartitions that are fully completed
     */
   override def delta: Option[Seq[OffsetRange]] = Some(completedOffsetRanges)
 
+
+  private def completedTopicPartitions = meta.filter(_.allPartitionsCompleted)
+  //TODO, integration test to make sure partially completed partitions are not checkpointed
+  private def completedOffsetRanges = completedTopicPartitions.map(_.offsetRange)
+
+  def checkConsistency(): Unit = {
+    val inconsistentTopicPartitions = completedTopicPartitions.filter{
+      meta =>
+        // offsetRange is what being read. completedRecords come from the writer confirmation.
+        // if they do not match, there could be bug or wrong assumptions about consumer reads,
+        // and this is serious problem
+        meta.offsetRange.count() != meta.completedRecords
+    }
+    if(inconsistentTopicPartitions.nonEmpty){
+      throw new Exception(s"Kafka read and write inconsistent: ${inconsistentTopicPartitions.mkString(",")}")
+    }
+  }
 }

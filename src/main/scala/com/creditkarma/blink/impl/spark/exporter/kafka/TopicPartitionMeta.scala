@@ -58,6 +58,10 @@ case class TopicPartitionMeta(val offsetRange: OffsetRange) extends Metric {
       field.CompletedRecords -> clientConfirmedRecords,
       field.OutputCompleted -> allPartitionsCompleted
     )
+
+  override def toString: String = {
+    s"TopicPartitionMeta($offsetRange, $fields)"
+  }
 }
 
 

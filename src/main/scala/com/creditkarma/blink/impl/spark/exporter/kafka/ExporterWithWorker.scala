@@ -1,6 +1,6 @@
 package com.creditkarma.blink.impl.spark.exporter.kafka
 
-import com.creditkarma.blink.base.{Exporter, ExporterAccessor}
+import com.creditkarma.blink.base.{Exporter, ExporterAccessor, StatusFatal}
 import com.creditkarma.blink.impl.spark.buffer.SparkRDD
 import com.creditkarma.blink.impl.spark.tracker.kafka.KafkaCheckpoint
 import org.apache.kafka.clients.consumer.ConsumerRecord
@@ -71,7 +71,11 @@ class ExporterWithWorker[K, V, P]
           metaIterable.foreach(topicPartitionMeta.aggregate)
           topicPartitionMeta
       }.collect()
-
-    new KafkaExportMeta(topicPartitionMeta)
+    val meta = new KafkaExportMeta(topicPartitionMeta)
+    Try(meta.checkConsistency()) match {
+      case Success(_) =>
+      case Failure(f) => updateStatus(new StatusFatal(f, "Meta data inconsistent is fatal"))
+    }
+    meta
   }
 }
