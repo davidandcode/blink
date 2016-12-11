@@ -4,6 +4,8 @@ import com.creditkarma.blink.base._
 
 /**
   * Created by shengwei.wang on 12/8/16.
+  * TO-DO: 1) follow metrics schema
+  *        2) aggregated raw data
   */
 class InfoToKafkaInstrumentor(flushSize:Int,host:String,port:String,topicName:String) extends Instrumentor{
   private val singleWriter = new InfoToKafkaSingleThreadWriter(host,port,topicName)

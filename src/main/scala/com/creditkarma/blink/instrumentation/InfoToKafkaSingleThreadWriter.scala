@@ -8,6 +8,7 @@ import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 
 /**
   * Created by shengwei.wang on 12/8/16.
+  * This writer is designed to run in a single thread
   */
 class InfoToKafkaSingleThreadWriter(host:String,port:String,topicName:String) {
   val keyString = "INSTRUMENTATION"
