@@ -36,13 +36,15 @@ class GCSWriter(
 
   override def getSubPartition(payload: String): GCSSubPartition = {
     val mTsParser = new CkAutoTsMessageParser(tsName,ifWithMicro,enforcedFields)
-
-try {
-  val tsParseResult = mTsParser.extractTimestampMillis(payload, "")
-   return new GCSSubPartition(tsParseResult.year,tsParseResult.month,tsParseResult.day,tsParseResult.hour,tsParseResult.minute,tsParseResult.second)
-} catch { // any parsing failure leads to default path/partition
-  case e:Exception => return new GCSSubPartition(defaulPartitionYear,defaulPartitionMonth,defaulPartitionDay,"","","")
-}
+    val result = Try(
+    {
+      mTsParser.extractTimestampMillis(payload, "")
+    }    )
+            match {
+              case Success(x) => new GCSSubPartition(x.year,x.month,x.day,x.hour,x.minute,x.second)
+              case Failure(f) => new GCSSubPartition(defaulPartitionYear,defaulPartitionMonth,defaulPartitionDay,"","","")
+              }
+    result
   }
 
   override def write(partition: SubPartition[GCSSubPartition],
@@ -52,10 +54,10 @@ try {
     def topicPartitn = partition.partition
     def subPartition = partition.subPartition
     def firstOffset = partition.fromOffset
+    def fileName = s"${topic}/${topicPartitn}/${subPartition.map(_.getYear).getOrElse(defaulPartitionYear)}/${subPartition.map(_.getMonth).getOrElse(defaulPartitionMonth)}/${subPartition.map(_.getDay).getOrElse(defaulPartitionDay)}/${firstOffset}.${outputFileExtension}"
 
     var lines = 0L
     var bytes = 0L
-
     // construct a stream for gcs uploader
     val mInputStreamContent = new InputStreamContent(
       outputAppString, // example "application/json",
@@ -86,7 +88,7 @@ try {
           )
           .objects.insert(// insert object
           bucketName, // gcs bucket
-          new StorageObject().setMetadata(metaDataMap).setCacheControl(cacheControl).setName(s"${topic}/${topicPartitn}/${subPartition.map(_.getYear).getOrElse(defaulPartitionYear)}/${subPartition.map(_.getMonth).getOrElse(defaulPartitionMonth)}/${subPartition.map(_.getDay).getOrElse(defaulPartitionDay)}/${firstOffset}.${outputFileExtension}"), // gcs object name
+          new StorageObject().setMetadata(metaDataMap).setCacheControl(cacheControl).setName(fileName), // gcs object name
           mInputStreamContent
         )
       request.getMediaHttpUploader.setDirectUploadEnabled(true)
@@ -97,7 +99,6 @@ try {
       case Success(_) => new WorkerMeta(lines,bytes,true)
       case Failure(f) => new WorkerMeta(lines,bytes,false)
     }
-    
     result
   }
 

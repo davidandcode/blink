@@ -62,7 +62,6 @@ trait KafkaExportWorkerCreator[K, V, P] extends SettableProperties {
   def writer: ExportWorker[K, V, P]
 }
 
-trait KafkaPartitionGCSWriterCreator extends SettableProperties {
-  def writer: ExportWorker[String, String, GCSSubPartition]
-}
+class KafkaImportPortalFactoryStringType extends KafkaImportPortalFactory[String, String, String]
 
+class KafkaImportPortalFactoryGCSPartitionType extends KafkaImportPortalFactory[String, String, GCSSubPartition]
