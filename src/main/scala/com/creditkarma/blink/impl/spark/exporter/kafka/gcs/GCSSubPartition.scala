@@ -3,18 +3,11 @@ package com.creditkarma.blink.impl.spark.exporter.kafka.gcs
 /**
   * Created by shengwei.wang on 12/6/16.
   */
-class GCSSubPartition(
+case class GCSSubPartition(
                        year:String,
                        month:String,
-                       day:String,
-                       hour:String,
-                       minute:String,
-                       second:String
+                       day:String
                      )  extends  Serializable{
-  def getYear:String = year
-  def getMonth:String = month
-  def getDay:String = day
-  def getHour:String = hour
-  def getMinute:String = minute
-  def getSecond:String = second
+  def timePartitionPath:String = year + "/" + month + "/" + day
+  def this(inputPath:String) = this(inputPath.substring(0,4),inputPath.substring(5,7),inputPath.substring(8,10))
 }

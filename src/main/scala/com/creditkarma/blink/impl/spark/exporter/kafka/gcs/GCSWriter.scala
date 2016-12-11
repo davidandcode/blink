@@ -2,6 +2,8 @@ package com.creditkarma.blink.impl.spark.exporter.kafka.gcs
 
 import java.io.{ByteArrayInputStream, InputStream, SequenceInputStream}
 import java.util
+import java.util.Date
+import java.text.SimpleDateFormat;
 
 import com.creditkarma.blink.impl.spark.exporter.kafka.{ExportWorker, KafkaMessageWithId, SubPartition, WorkerMeta}
 import com.creditkarma.blink.utils.gcs.GCSUtils
@@ -30,9 +32,9 @@ class GCSWriter(
   override def useSubPartition: Boolean = true
 
   // messages with unparseable ts all go to the default partition
-  private val defaulPartitionYear:String = "1969"
-  private val defaulPartitionMonth:String = "12"
-  private val defaulPartitionDay:String = "31"
+  private val defaultEpochTime = 0L
+  val format:SimpleDateFormat = new SimpleDateFormat("yyyy/MM/dd")
+  val defaultPartitionPath:String = format.format(new Date(defaultEpochTime))
 
   override def getSubPartition(payload: String): GCSSubPartition = {
     val mTsParser = new CkAutoTsMessageParser(tsName,ifWithMicro,enforcedFields)
@@ -41,49 +43,44 @@ class GCSWriter(
       mTsParser.extractTimestampMillis(payload, "")
     }    )
             match {
-              case Success(x) => new GCSSubPartition(x.year,x.month,x.day,x.hour,x.minute,x.second)
-              case Failure(f) => new GCSSubPartition(defaulPartitionYear,defaulPartitionMonth,defaulPartitionDay,"","","")
+              case Success(x) => new GCSSubPartition(x.year,x.month,x.day)
+              case Failure(f) => new GCSSubPartition(defaultPartitionPath)
               }
     result
   }
 
   override def write(partition: SubPartition[GCSSubPartition], data: Iterator[KafkaMessageWithId[String, String]]): WorkerMeta = {
     def subPartition = partition.subPartition
-    def fileName = s"""${partition.topic}/${partition.partition}/
-         |${subPartition.map(_.getYear).getOrElse(defaulPartitionYear)}/${subPartition.map(_.getMonth).getOrElse(defaulPartitionMonth)}/
-         |${subPartition.map(_.getDay).getOrElse(defaulPartitionDay)}/${partition.fromOffset}.${outputFileExtension}""".stripMargin
+    def fileName =
+      s"""${partition.topic}/${partition.partition}/
+         |${subPartition.map(_.timePartitionPath).getOrElse(defaultPartitionPath)}/
+         |${partition.fromOffset}.${outputFileExtension}""".stripMargin.replaceAll("\n", "")
 
     var lines = 0L
     var bytes = 0L
-    // construct a stream for gcs uploader
-    val mInputStreamContent = new InputStreamContent(
-      outputAppString, // example "application/json",
-      iteratorToStream(
-        data.map {
-          record: KafkaMessageWithId[String, String] => {
-            lines += 1 ; bytes += record.value.size
-            record.value + "\n"
-          }
+
+    val mStream = iteratorToStream(
+      data.map {
+        record: KafkaMessageWithId[String, String] => {
+          lines += 1
+          bytes += record.value.size
+          record.value + "\n"
         }
-      )
+      }
     )
+
     val metaDataMap: util.HashMap[String,String] = new util.HashMap[String,String]()
     for(keyString <- metaData.split(";")){
       metaDataMap.put(keyString.split(",")(0),keyString.split(",")(1))
     }
 
     val result = Try (
-      {val request =
-        GCSUtils
-          .getService(// get gcs storage service
-            credentialsPath,
-            connectTimeoutMs, // connection timeout
-            readTimeoutMs // read timeout
-          )
-          .objects.insert(// insert object
-          bucketName, // gcs bucket
-          new StorageObject().setMetadata(metaDataMap).setCacheControl(cacheControl).setName(fileName), // gcs object name
-          mInputStreamContent
+      {
+        val storageObject = GCSUtils.getService(credentialsPath,connectTimeoutMs,readTimeoutMs).objects()
+        val request = storageObject.insert(
+          bucketName,
+          new StorageObject().setMetadata(metaDataMap).setCacheControl(cacheControl).setName(fileName),
+          new InputStreamContent( outputAppString, mStream)
         )
       request.getMediaHttpUploader.setDirectUploadEnabled(true)
       request.execute()

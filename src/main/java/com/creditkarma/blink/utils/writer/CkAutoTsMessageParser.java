@@ -128,6 +128,8 @@ public class CkAutoTsMessageParser {
             }
 
         }
+
+        if(result == null) throw new Exception();
         return result;
     }
 

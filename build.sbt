@@ -20,7 +20,6 @@ libraryDependencies += "net.minidev" % "json-smart" % "2.2.1"
 
 testOptions in Test := Seq(Tests.Filter(s => s.endsWith("ZookeeperServiceTest")))
 
-mainClass in (Compile, run) := Some("com.creditkarma.logx.example.KafkaTest1")
 
 
 
