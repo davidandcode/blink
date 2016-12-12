@@ -52,7 +52,7 @@ class GCSWriter(
   override def write(partition: SubPartition[GCSSubPartition], data: Iterator[KafkaMessageWithId[String, String]]): WorkerMeta = {
     def subPartition = partition.subPartition
     def fileName =
-      s"""${pathPrefix}${partition.topic}/
+      s"""${pathPrefix}/${partition.topic}/
          |${subPartition.map(_.timePartitionPath).getOrElse("")}/
          |${partition.partition}/${partition.fromOffset}.${outputFileExtension}""".stripMargin.replaceAll("\n", "")
 

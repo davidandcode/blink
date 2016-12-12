@@ -25,7 +25,7 @@ class GCSWriterTest extends FlatSpec{
     "priority,high;period,60",
     "",
     "json",
-    ""
+    "someprefix"
   )
 
   val conf = new SparkConf().setAppName("spark gcs connector test").setMaster("local[8]")
@@ -68,7 +68,7 @@ class GCSWriterTest extends FlatSpec{
     val result: WorkerMeta = mGCSWriter.write(subPartition, data.toIterator)
 
 
-    val myRDD = sc.textFile("gs://dataeng_test/GCSWriterUnitTest/2015/11/27/5/1234567.json")
+    val myRDD = sc.textFile("gs://dataeng_test/someprefix/GCSWriterUnitTest/2015/11/27/5/1234567.json")
     assert(result.records == myRDD.count())
     assert(result.complete == true)
     val localIterator = myRDD.toLocalIterator

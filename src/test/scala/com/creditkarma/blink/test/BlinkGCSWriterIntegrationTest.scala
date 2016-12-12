@@ -41,25 +41,25 @@ startKafka()
 
      val portalId = MainApp.castPortal("src/test/resources/kafka.test3.properties")
 
-    val myRDD1 = sc.textFile("gs://dataeng_test/SaturdayEvening/2014/05/07/0/0.json")
+    val myRDD1 = sc.textFile("gs://dataeng_test/someprefix/SaturdayEvening/2014/05/07/0/0.json")
     val local1 = myRDD1.toLocalIterator
     assert(local1.next() == "{\"dwNumericId\":5446427592603205633,\"traceId\":\"3a47bfd7-f050-424a-8bb3-1e84a3ab995a\",\"policyHolderId\":73,\"accidentIdx\":1,\"yearMonth\":\"2015-03-00T00:00:00-0800\",\"incidentType\":\"MINOR\",\"tsEvent\":\"1453492695.320\",\"driverIdx\":1,\"source\":\"web014.be.prod.iad1.ckint.io\",\"schemaName\":\"Accident.json\",\"version\":\"3c4eb462888500d9f161b4d637123e72\",\"ts\":\"2014-05-07T14:22:35.863513-08:00\"}")
 
 
-    val myRDD2 = sc.textFile("gs://dataeng_test/SaturdayEvening/2016/11/27/0/0.json")
+    val myRDD2 = sc.textFile("gs://dataeng_test/someprefix/SaturdayEvening/2016/11/27/0/0.json")
     val local2 = myRDD2.toLocalIterator
     assert(local2.next() == "{\"dwNumericId\":5446427592603205633,\"traceId\":\"3a47bfd7-f050-424a-8bb3-1e84a3ab995a\",\"policyHolderId\":73,\"accidentIdx\":1,\"yearMonth\":\"2015-03-00T00:00:00-0800\",\"incidentType\":\"MINOR\",\"tsEvent\":\"1453492695.320\",\"driverIdx\":1,\"source\":\"web014.be.prod.iad1.ckint.io\",\"schemaName\":\"Accident.json\",\"version\":\"3c4eb462888500d9f161b4d637123e72\",\"ts\":\"2016-11-27T14:22:35.863513-08:00\"}")
 
-    val myRDD3 = sc.textFile("gs://dataeng_test/SaturdayEvening/2019/05/07/0/0.json")
+    val myRDD3 = sc.textFile("gs://dataeng_test/someprefix/SaturdayEvening/2019/05/07/0/0.json")
     val local3 = myRDD3.toLocalIterator
     assert(local3.next() =="{\"dwNumericId\":5446427592603205633,\"traceId\":\"3a47bfd7-f050-424a-8bb3-1e84a3ab995a\",\"policyHolderId\":73,\"accidentIdx\":1,\"yearMonth\":\"2015-03-00T00:00:00-0800\",\"incidentType\":\"MINOR\",\"tsEvent\":\"1453492695.320\",\"driverIdx\":1,\"source\":\"web014.be.prod.iad1.ckint.io\",\"schemaName\":\"Accident.json\",\"version\":\"3c4eb462888500d9f161b4d637123e72\",\"ts\":\"2019-05-07T14:22:35.863513-08:00\"}")
 
-    val myRDD4 = sc.textFile("gs://dataeng_test/SaturdayEvening/2016/12/12/0/0.json")
+    val myRDD4 = sc.textFile("gs://dataeng_test/someprefix/SaturdayEvening/2016/12/12/0/0.json")
     val local4 = myRDD4.toLocalIterator
     assert(local4.next() == "{\"dwNumericId\":5446427592603205633,\"traceId\":\"3a47bfd7-f050-424a-8bb3-1e84a3ab995a\",\"policyHolderId\":73,\"accidentIdx\":1,\"yearMonth\":\"2015-03-00T00:00:00-0800\",\"incidentType\":\"MINOR\",\"tsEvent\":\"1453492695.320\",\"driverIdx\":1,\"source\":\"web014.be.prod.iad1.ckint.io\",\"schemaName\":\"Accident.json\",\"version\":\"3c4eb462888500d9f161b4d637123e72\",\"ts\":\"2016-12-12T14:22:35.863513-08:00\"}")
     assert(local4.next() == "{\"dwNumericId\":5446427592603205633,\"traceId\":\"3a47bfd7-f050-424a-8bb3-1e84a3ab995a\",\"policyHolderId\":73,\"accidentIdx\":1,\"yearMonth\":\"2015-03-00T00:00:00-0800\",\"incidentType\":\"MINOR\",\"tsEvent\":\"1453492695.320\",\"driverIdx\":1,\"source\":\"web014.be.prod.iad1.ckint.io\",\"schemaName\":\"Accident.json\",\"version\":\"3c4eb462888500d9f161b4d637123e72\",\"ts\":\"2016-12-12T14:22:35.863000-08:00\"}")
 
-    val myRDD5 = sc.textFile("gs://dataeng_test/SaturdayEvening/1969/12/31/0/0.json")
+    val myRDD5 = sc.textFile("gs://dataeng_test/someprefix/SaturdayEvening/1969/12/31/0/0.json")
     val local5 = myRDD5.toLocalIterator
     assert(local5.next() == "{\"xyz\":fd,\"traceId\":\"3a47bfd7-f050-424a-8bb3-1e84a3ab995ancidentType\":\"MINOR\",\"tsEvent\":\"1453492695.320\",\"driverIdx\":1,\"source\":\"web014.be.prod.iad1.ckint.io\",\"schemaName\":\"Accident.json\",\"version\":\"3c4eb462888500d9f161b4d637123e72\",\"ts\":\"20a19-05-07T14:22:35.863513-08:00\"}")
     assert(local5.next() == "{\"dwNumericId\":5446427592603205633,\"traceId\":\"3a47bfd7-f050-424a-8bb3-1e84a3ab995a\",\"policyHolderId\":73,\"accidentIdx\":1,\"yearMonth\":\"2015-03-00T00:00:00-0800\",\"incidentType\":\"MINOR\",\"tsEvent\":\"1453492695.320\",\"driverIdx\":1,\"source\":\"web014.be.prod.iad1.ckint.io\",\"12-11T14:22:35.863513-08:00\"")
@@ -84,6 +84,7 @@ class GCSTestWriterCreator extends KafkaExportWorkerCreator[String,String,GCSSub
     val metaData = get("metaData").getOrElse("")
     val cacheControl = get("cacheControl").getOrElse("")
     val outputFileExtension = get("outputFileExtension").getOrElse("")
+    val pathPrefix = get("pathPrefix").getOrElse("")
 
     new GCSWriter(
       tsName,
@@ -97,7 +98,7 @@ class GCSTestWriterCreator extends KafkaExportWorkerCreator[String,String,GCSSub
       metaData,
       cacheControl,
       outputFileExtension,
-      ""
+      pathPrefix
     )
 
 
