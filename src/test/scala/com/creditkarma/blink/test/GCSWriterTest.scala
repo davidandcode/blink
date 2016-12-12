@@ -68,7 +68,7 @@ class GCSWriterTest extends FlatSpec{
     val result: WorkerMeta = mGCSWriter.write(subPartition, data.toIterator)
 
 
-    val myRDD = sc.textFile("gs://dataeng_test/GCSWriterUnitTest/5/2015/11/27/1234567.json")
+    val myRDD = sc.textFile("gs://dataeng_test/GCSWriterUnitTest/2015/11/27/5/1234567.json")
     assert(result.records == myRDD.count())
     assert(result.complete == true)
     val localIterator = myRDD.toLocalIterator
