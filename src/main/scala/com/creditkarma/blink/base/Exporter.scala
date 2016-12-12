@@ -2,14 +2,13 @@ package com.creditkarma.blink.base
 
 import scala.util.{Failure, Success, Try}
 
-trait ExportMeta[Delta] {
+trait ExportMeta[Delta] extends Metrics{
   /**
     *
     * @return optionally return delta for partial checkpoint
     *         If none is returned, checkpoint will be all(on success) or nothing(on failure)
     */
   def delta: Option[Delta] = None
-  def metrics: Metrics
   def outRecords: Long
 }
 
@@ -42,7 +41,7 @@ trait Exporter[B <: BufferedData, C <: Checkpoint[D, C], D, Meta <: ExportMeta[D
     Try(export(data, sharedState))
     match {
       case Success(meta) =>
-        updateMetrics(meta.metrics)
+        updateMetrics(meta)
         phaseCompleted(Phase.Write)
         sharedState.setExporterRecords(meta.outRecords)
         sharedState.setExporterDelta(meta.delta)

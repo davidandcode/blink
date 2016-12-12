@@ -8,9 +8,8 @@ import org.apache.spark.streaming.kafka010.OffsetRange
   * Created by yongjia.wang on 12/7/16.
   */
 class KafkaExportMeta(meta: Seq[TopicPartitionMeta]) extends ExportMeta[Seq[OffsetRange]]{
-  override def metrics: Metrics = new Metrics {
-    override def metrics: Iterable[Metric] = meta
-  }
+  override def metrics: Iterable[Metric] = meta
+
   /**
     * Only successful records count. Zero may indicate the sink has serious issues, and the next cycle will wait for the [[Portal.tickTime]]
     * Positive number indicates the entire flow is functioning and it will attempt the next cycle immediately.
@@ -25,9 +24,11 @@ class KafkaExportMeta(meta: Seq[TopicPartitionMeta]) extends ExportMeta[Seq[Offs
   override def delta: Option[Seq[OffsetRange]] = Some(completedOffsetRanges)
 
 
-  private def completedTopicPartitions = meta.filter(_.allPartitionsCompleted)
+  def completedTopicPartitions: Seq[TopicPartitionMeta] = meta.filter(_.allPartitionsCompleted)
   //TODO, integration test to make sure partially completed partitions are not checkpointed
-  private def completedOffsetRanges = completedTopicPartitions.map(_.offsetRange)
+  def completedOffsetRanges: Seq[OffsetRange] = completedTopicPartitions.map(_.offsetRange)
+
+  def allOffsetRanges: Seq[OffsetRange] = meta.map(_.offsetRange)
 
   def checkConsistency(): Unit = {
     val inconsistentTopicPartitions = completedTopicPartitions.filter{
