@@ -2,8 +2,6 @@ package com.creditkarma.blink.impl.spark.exporter.kafka.gcs
 
 import java.io.{ByteArrayInputStream, InputStream, SequenceInputStream}
 import java.util
-import java.util.Date
-import java.text.SimpleDateFormat;
 
 import com.creditkarma.blink.impl.spark.exporter.kafka.{ExportWorker, KafkaMessageWithId, SubPartition, WorkerMeta}
 import com.creditkarma.blink.utils.gcs.GCSUtils
@@ -31,11 +29,6 @@ class GCSWriter(
                     ) extends ExportWorker[String,String,GCSSubPartition]{
   override def useSubPartition: Boolean = true
 
-  // messages with unparseable ts all go to the default partition
-  private val defaultEpochTime = 0L
-  val format:SimpleDateFormat = new SimpleDateFormat("yyyy/MM/dd")
-  val defaultPartitionPath:String = format.format(new Date(defaultEpochTime))
-
   override def getSubPartition(payload: String): GCSSubPartition = {
     val mTsParser = new CkAutoTsMessageParser(tsName,ifWithMicro,enforcedFields)
     val result = Try(
@@ -43,8 +36,8 @@ class GCSWriter(
       mTsParser.extractTimestampMillis(payload, "")
     }    )
             match {
-              case Success(x) => new GCSSubPartition(x.year,x.month,x.day)
-              case Failure(f) => new GCSSubPartition(defaultPartitionPath)
+              case Success(x) => new GCSSubPartition(x)
+              case Failure(f) => new GCSSubPartition(0)
               }
     result
   }
@@ -53,7 +46,7 @@ class GCSWriter(
     def subPartition = partition.subPartition
     def fileName =
       s"""${partition.topic}/${partition.partition}/
-         |${subPartition.map(_.timePartitionPath).getOrElse(defaultPartitionPath)}/
+         |${subPartition.map(_.timePartitionPath).getOrElse("")}/
          |${partition.fromOffset}.${outputFileExtension}""".stripMargin.replaceAll("\n", "")
 
     var lines = 0L
