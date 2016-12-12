@@ -24,7 +24,8 @@ class GCSWriterTest extends FlatSpec{
     "application/json",
     "priority,high;period,60",
     "",
-    "json"
+    "json",
+    ""
   )
 
   val conf = new SparkConf().setAppName("spark gcs connector test").setMaster("local[8]")
@@ -34,7 +35,7 @@ class GCSWriterTest extends FlatSpec{
   sc.hadoopConfiguration.set("fs.gs.impl","com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem")
   sc.hadoopConfiguration.set("google.cloud.auth.service.account.enable", "true")
   sc.hadoopConfiguration.set("google.cloud.auth.service.account.email", "dataeng-test@modular-shard-92519.iam.gserviceaccount.com")
-  sc.hadoopConfiguration.set("google.cloud.auth.service.account.keyfile", "/Users/shengwei.wang/projects/DataScience-ac040bae47fb.p12")
+  sc.hadoopConfiguration.set("google.cloud.auth.service.account.keyfile", "testingcredentials/DataScience-ac040bae47fb.p12")
 
 
   "A writer" should "get the subpartition properly" in {
