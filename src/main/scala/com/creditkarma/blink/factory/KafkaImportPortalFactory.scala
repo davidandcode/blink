@@ -3,15 +3,11 @@ package com.creditkarma.blink.factory
 import com.creditkarma.blink.PortalConstructor
 import com.creditkarma.blink.base.PortalController
 import com.creditkarma.blink.impl.spark.exporter.kafka.ExportWorker
-import com.creditkarma.blink.impl.spark.exporter.kafka.gcs.GCSSubPartition
 import com.creditkarma.blink.impl.spark.importer.kafka.KafkaTopicFilter
 import com.creditkarma.blink.impl.spark.tracker.kafka.ZooKeeperStateTracker
 import com.creditkarma.blink.instrumentation.LogInfoInstrumentor
 import kafka.consumer.{Blacklist, Whitelist}
-import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
-import org.scalactic.Fail
-
-import scala.util.{Failure, Success, Try}
+import org.apache.kafka.common.serialization.StringDeserializer
 
 /**
   * Create portals from Kafka specifically
@@ -63,5 +59,3 @@ trait KafkaExportWorkerCreator[K, V, P] extends SettableProperties {
 }
 
 class KafkaImportPortalFactoryStringType extends KafkaImportPortalFactory[String, String, String]
-
-class KafkaImportPortalFactoryGCSPartitionType extends KafkaImportPortalFactory[String, String, GCSSubPartition]
