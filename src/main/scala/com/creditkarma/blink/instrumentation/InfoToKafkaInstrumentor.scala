@@ -1,25 +1,27 @@
 package com.creditkarma.blink.instrumentation
 
+import java.text.SimpleDateFormat
+import java.util.Date
+
 import com.creditkarma.blink.base._
+import com.creditkarma.blink.impl.spark.exporter.kafka.KafkaExportMeta
 import net.minidev.json.JSONObject
 import net.minidev.json.JSONValue
-import org.apache.kafka.common.utils.SystemTime;
+import org.apache.spark.streaming.kafka010.OffsetRange
 
 /**
   * Created by shengwei.wang on 12/8/16.
   * TO-DO: 1) follow metrics schema
   *        2) aggregated raw data
   *
-  *
-  *        {
+  *{
    "nDateTime": "1997-07-16T19:20:30.451+16:00", // timestamp with milliseconds
    "dataSource": <dataPipeline>_<In|Out>, // component service name
    "eventType": TableTopics_g0_t01_p[0|1|2]_DPMetrics, // TableTopic schema
    "nPDateTime": "1997-07-16T19:00:00.000+16:00",
    "payload": {
-
-      "nRecords": "integer",
-      "nRecordsErr": "integer",
+      "inRecords": "integer",
+      "outRecords": "integer",
       "RecordsErrReason": "string",
       "tsEvent": "integer",
       "elapsedTime": "integer"
@@ -30,67 +32,81 @@ import org.apache.kafka.common.utils.SystemTime;
    "geoLocLong": 34.443 // Not used
 }
   *
+  *
   */
-class InfoToKafkaInstrumentor(flushInterval:Long,flushSize:Int,host:String,port:String,topicName:String) extends Instrumentor{
+class InfoToKafkaInstrumentor(flushInterval:Long,host:String,port:String,topicName:String) extends Instrumentor{
   private val singleWriter = new InfoToKafkaSingleThreadWriter(host,port,topicName)
   private var dataBuffered:scala.collection.mutable.MutableList[String] = new scala.collection.mutable.MutableList[String]
   private val startTime:Long =  java.lang.System.currentTimeMillis()
+  private var prevFlashTime:Long = startTime
+  private var tic = 0L
+  private var tac = 0L
 
-  private val startTemplate = "{\"nDateTime\": \"\",\"dataSource\": \"\",\"eventType\": \"\",\"nPDateTime\": \"\",\"payload\": {\"cycleId\": \"\",\"cycleStatus\": \"started\"},\"ipAddress\": \"\", \"userAgent\": \"\", \"geoLocLat\": \"\" , \"geoLocLong\":  \"\"}"
-  val startJsonObject:JSONObject  = JSONValue.parse(startTemplate).asInstanceOf[JSONObject]
-
-  private val metricsTemplate = "{\"nDateTime\": \"\",\"dataSource\": \"\",\"eventType\": \"\",\"nPDateTime\": \"\",\"payload\": {\"cycleId\": \"\",\"cycleStatus\": \"\"},\"ipAddress\": \"\", \"userAgent\": \"\", \"geoLocLat\": \"\" , \"geoLocLong\":  \"\"}"
+  private val metricsTemplate = "{\"nDateTime\": \"\", \"dataSource\": \"\", \"eventType\": \"\", \"nPDateTime\": \"\", \"payload\": \"\",  \"ipAddress\":\"\", \"userAgent\": \"\", \"geoLocLat\":\"\",   \"geoLocLong\": \"\" }"
   val jsonObject:JSONObject  = JSONValue.parse(metricsTemplate).asInstanceOf[JSONObject]
-
-  private val payloadTemplate = ""
-  val payLoadJsonObject:JSONObject  = JSONValue.parse(payloadTemplate).asInstanceOf[JSONObject]
-
-
+  private val payloadTemplate = "{\"inRecords\": \"\", \"outRecords\": \"\", \"RecordsErrReason\": \"\", \"tsEvent\": \"\", \"elapsedTime\": \"\" }"
+  val payloadObject:JSONObject  = JSONValue.parse(payloadTemplate).asInstanceOf[JSONObject]
   // a clousre to flush and reset
-  def flush:Unit = if((java.lang.System.currentTimeMillis() - startTime) >= startTime) {
-    singleWriter.saveBlockToKafka(dataBuffered)
-    dataBuffered = new scala.collection.mutable.MutableList[String]
-
+  def flush:Unit = {
+    val currentTs = java.lang.System.currentTimeMillis()
+    if(currentTs - prevFlashTime >= flushInterval) {
+      singleWriter.saveBlockToKafka(dataBuffered)
+      dataBuffered = new scala.collection.mutable.MutableList[String]
+      prevFlashTime = currentTs
+    }
   }
 
   override def name: String = this.getClass.getName
 
   var cycleId: Long = 0
+
   override def cycleStarted(module: CoreModule): Unit = {
-    val systemTs = java.lang.System.currentTimeMillis()
-    startJsonObject.put("nDateTime",s"$systemTs")
-    startJsonObject.get("payload").asInstanceOf[JSONObject].put("cycleId",s"$cycleId")
-    dataBuffered +=(startJsonObject.toJSONString)
+    tic = java.lang.System.currentTimeMillis()
   }
 
   override def cycleCompleted(module: CoreModule): Unit = {
-    dataBuffered +=(s"${module.portalId} Cycle $cycleId completed")
     flush
     cycleId += 1
   }
 
   override def updateStatus(module: CoreModule, status: Status): Unit = {
-    dataBuffered += s"${module.portalId} Cycle=$cycleId, Module=${module.getClass.getSimpleName}(type=${module.moduleType}), status=${status}"
     if(status.statusCode == StatusCode.FATAL){
-      dataBuffered += "Unexpected situation is encountered, exit now and must have it fixed, to avoid unrecoverable damages"
       flush
       System.exit(0)
     }
   }
 
   override def updateMetrics(module: CoreModule, metrics: Metrics): Unit = {
-    dataBuffered += (s"${module.portalId} Cycle=$cycleId, Module=${module.getClass.getSimpleName}(type=${module.moduleType}), metrics=${
-      metrics.metrics.map{
-        m => s"[d=${m.dimensions},f=${m.fields}]"
-      }.mkString(",")}")
+    if(module.moduleType == ModuleType.Writer){
+      val format:SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX")
+
+      jsonObject.put("nDateTime",format.format(new Date(java.lang.System.currentTimeMillis())))
+      jsonObject.put("dataSource", "Blink_In")
+
+      var totalInRecords = 0L
+        for(tempOSR <- metrics.asInstanceOf[KafkaExportMeta].allOffsetRanges){
+          totalInRecords += tempOSR.count()
+        }
+        var totalOutRecords = 0L
+        for(tempOSR <- metrics.asInstanceOf[KafkaExportMeta].completedOffsetRanges){
+          totalOutRecords += tempOSR.count()
+        }
+      tac = java.lang.System.currentTimeMillis()
+      payloadObject.put("inRecords",totalInRecords.toString)
+      payloadObject.put("outRecords",totalOutRecords.toString)
+      payloadObject.put("elapsedTime",(tac-tic).toString)
+      payloadObject.put("RecordsErrReason",s"lost in blink's ${cycleId} Cycle")
+      payloadObject.put("tsEvent",tac.toString)
+
+      jsonObject.put("payload",payloadObject.toJSONString())
+      dataBuffered += jsonObject.toJSONString()
+    }
   }
 
   override def phaseStarted(module: CoreModule, phase: Phase.Value): Unit = {
-    dataBuffered += s"${module.portalId} Cycle=$cycleId, ${phase} phase started"
   }
 
   override def phaseCompleted(module: CoreModule, phase: Phase.Value): Unit = {
-    dataBuffered += s"${module.portalId} Cycle=$cycleId, ${phase} phase completed"
   }
 
 
