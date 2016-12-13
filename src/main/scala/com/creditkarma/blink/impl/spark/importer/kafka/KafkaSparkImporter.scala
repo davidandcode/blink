@@ -154,14 +154,15 @@ class KafkaImportMeta
         meta => meta.shouldFlush && meta.nextOffsetRange.count() > 0
       }.map(_.nextOffsetRange).toSeq
 
-  def metrics: Metrics = new Metrics {
-    override def metrics: Iterable[Metric] =
-      topicPartitionMetaData :+
-        new Metric {
-          override def dimensions: Map[Any, Any] = Map()
-          override def fields: Map[Any, Any] = Map("topics"->totalTopics, "messages"->totalMessages)
-        }
-  }
+
+  override def metrics: Iterable[Metric] =
+    topicPartitionMetaData :+
+      new Metric {
+        override def dimensions: Map[Any, Any] = Map()
+
+        override def fields: Map[Any, Any] = Map("topics" -> totalTopics, "messages" -> totalMessages)
+
+      }
 
   def totalTopics: Int = offsetRanges.map(_.topic).distinct.size
 

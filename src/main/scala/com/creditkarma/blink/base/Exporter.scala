@@ -10,6 +10,7 @@ trait ExportMeta[Delta] extends Metrics{
     */
   def delta: Option[Delta] = None
   def outRecords: Long
+  def inRecords: Long
 }
 
 /**
