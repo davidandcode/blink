@@ -70,6 +70,10 @@ class InfoToKafkaInstrumentor(flushInterval:Long,host:String,port:String,topicNa
   }
 
   override def updateStatus(module: CoreModule, status: Status): Unit = {
+    if(module.moduleType == ModuleType.Core && status.message == "checkpoint commit failure" ){
+      val oldInfo = payloadObject.get("RecordsErrReason")
+      payloadObject.put("RecordsErrReason",oldInfo + s" checkpoint commit failure in blink's ${cycleId} Cycle")
+    }
     if(status.statusCode == StatusCode.FATAL){
       flush
       System.exit(0)
@@ -78,12 +82,14 @@ class InfoToKafkaInstrumentor(flushInterval:Long,host:String,port:String,topicNa
 
   override def updateMetrics(module: CoreModule, metrics: Metrics): Unit = {
     if(module.moduleType == ModuleType.Writer){
+      if(metrics.isInstanceOf[KafkaExportMeta]){
+        metrics.asInstanceOf[KafkaExportMeta].outRecords
+      }
       val format:SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX")
-
       jsonObject.put("nDateTime",format.format(new Date(java.lang.System.currentTimeMillis())))
       jsonObject.put("dataSource", "Blink_In")
 
-      var totalInRecords = 0L
+        var totalInRecords = 0L
         for(tempOSR <- metrics.asInstanceOf[KafkaExportMeta].allOffsetRanges){
           totalInRecords += tempOSR.count()
         }
@@ -95,7 +101,10 @@ class InfoToKafkaInstrumentor(flushInterval:Long,host:String,port:String,topicNa
       payloadObject.put("inRecords",totalInRecords.toString)
       payloadObject.put("outRecords",totalOutRecords.toString)
       payloadObject.put("elapsedTime",(tac-tic).toString)
-      payloadObject.put("RecordsErrReason",s"lost in blink's ${cycleId} Cycle")
+      if(totalInRecords > totalOutRecords)
+        payloadObject.put("RecordsErrReason",s"${totalInRecords - totalOutRecords} records lost in writting blink's ${cycleId} Cycle")
+      else
+        payloadObject.put("RecordsErrReason"," ")
       payloadObject.put("tsEvent",tac.toString)
 
       jsonObject.put("payload",payloadObject.toJSONString())
