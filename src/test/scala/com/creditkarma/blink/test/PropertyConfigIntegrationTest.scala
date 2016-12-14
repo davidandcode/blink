@@ -1,8 +1,8 @@
 package com.creditkarma.blink.test
 
 import com.creditkarma.blink.MainApp
-import com.creditkarma.blink.factory.KafkaStringPartitionWriterCreator
-import com.creditkarma.blink.impl.spark.exporter.kafka.KafkaPartitionWriter
+import com.creditkarma.blink.factory.KafkaExportWorkerCreator
+import com.creditkarma.blink.impl.spark.exporter.kafka.ExportWorker
 import org.apache.log4j.{Level, LogManager}
 import org.scalatest.{BeforeAndAfterAll, WordSpec}
 
@@ -14,16 +14,20 @@ class PropertyConfigIntegrationTest extends WordSpec with BeforeAndAfterAll with
 
   // port numbers must match the configuration file
   override val configuredPorts: Option[(Int, Int)] = Some((5678, 1234))
-  val configFile = "src/test/resources/kafka.test.properties"
 
   "A blink portal lunched by valid config" should {
-    "receive all 10 messages" in {
+    "receive correct number of messages based on topic filter" in {
       prepareKafkaData()
-      val portalId = MainApp.castPortal(configFile)
+      val portalId = MainApp.castPortal("src/test/resources/kafka.test.properties")
       assert(SimpleCollectibleWriter.globalCollector.get(portalId).get.size == 10)
+
+      val portalId2 = MainApp.castPortal("src/test/resources/kafka.test2.properties")
+      assert(SimpleCollectibleWriter.globalCollector.get(portalId2).get.size == 5)
+
       shutDownKafka()
     }
   }
+
 
   def prepareKafkaData(): Unit = {
     startKafka()
@@ -47,8 +51,8 @@ class PropertyConfigIntegrationTest extends WordSpec with BeforeAndAfterAll with
   }
 }
 
-class TestWriterCreator extends KafkaStringPartitionWriterCreator {
-  override def writer: KafkaPartitionWriter[String, String, String] = {
+class TestWriterCreator extends KafkaExportWorkerCreator[String, String, String] {
+  override def writer: ExportWorker[String, String, String] = {
     SimpleCollectibleWriter.writer
   }
 }

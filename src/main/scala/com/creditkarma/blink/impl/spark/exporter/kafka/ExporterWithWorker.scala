@@ -1,6 +1,6 @@
 package com.creditkarma.blink.impl.spark.exporter.kafka
 
-import com.creditkarma.blink.base.{ExporterAccessor, Exporter}
+import com.creditkarma.blink.base.{Exporter, ExporterAccessor, StatusFatal}
 import com.creditkarma.blink.impl.spark.buffer.SparkRDD
 import com.creditkarma.blink.impl.spark.tracker.kafka.KafkaCheckpoint
 import org.apache.kafka.clients.consumer.ConsumerRecord
@@ -8,9 +8,6 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.streaming.kafka010.{HasOffsetRanges, OffsetRange}
 
 import scala.util.{Failure, Success, Try}
-
-
-
 
 /**
   * GroupBy is an expensive operation since it reshuffle the input records without local combining.
@@ -22,15 +19,15 @@ import scala.util.{Failure, Success, Try}
   * @tparam V
   * @tparam P
   */
-class KafkaSparkExporterWithWorker[K, V, P]
-(partitionedWriter: KafkaPartitionWriter[K, V, P])
-  extends Exporter[SparkRDD[ConsumerRecord[K, V]], KafkaCheckpoint, Seq[OffsetRange], KafkaExportMeta[P]] {
+class ExporterWithWorker[K, V, P]
+(exportWorker: ExportWorker[K, V, P])
+  extends Exporter[SparkRDD[ConsumerRecord[K, V]], KafkaCheckpoint, Seq[OffsetRange], KafkaExportMeta] {
 
-  override def export(data: SparkRDD[ConsumerRecord[K, V]], sharedState: ExporterAccessor[KafkaCheckpoint, Seq[OffsetRange]]): KafkaExportMeta[P] = {
-    partitionedWriter.registerPortal(portalId) // portalId is not available at construction time
-    val localPartitionedWriter = partitionedWriter
+  override def export(data: SparkRDD[ConsumerRecord[K, V]], sharedState: ExporterAccessor[KafkaCheckpoint, Seq[OffsetRange]]): KafkaExportMeta = {
+    exportWorker.registerPortal(portalId) // portalId is not available at construction time
+    val closureWorker = exportWorker // this reassignment is necessary for Spark not to attempt serializing the entire Exporter class
     val offsetRangeByIndex = data.rdd.asInstanceOf[HasOffsetRanges].offsetRanges
-    // convert KafkaRDD to a paird RDD of OffsetRange and its message stream
+    // convert KafkaRDD to a pair RDD of OffsetRange and its message stream
     val topicPartitionStreamRDD: RDD[(OffsetRange, Iterator[KafkaMessageWithId[K, V]])] =
       data.rdd.mapPartitionsWithIndex {
         case (partitionIndex: Int, consumerRecords: Iterator[ConsumerRecord[K, V]]) =>
@@ -44,37 +41,41 @@ class KafkaSparkExporterWithWorker[K, V, P]
     // Divide the RDD into subPartitions using groupBy, which is an expensive operation requiring shuffling and buffering with worst case linear size.
     // The message becomes Iterable, not Iterator any more, reflecting the buffering. Its iterator is used in output to keep consistent API.
     // If subPartition is not used, it's simply an on-the-fly map transformation, the entire flow is streamlined without shuffling.
-    val outputPartitionStreamRDD: RDD[(KafkaSubPartition[P], Iterator[KafkaMessageWithId[K, V]])] =
-      if (localPartitionedWriter.useSubPartition) {
+    val partitionedStreamRDD: RDD[(SubPartition[P], Iterator[KafkaMessageWithId[K, V]])] =
+      if (closureWorker.useSubPartition) {
         // when using subpartition, must perform a groupByKey on each records keyed by the (topicPartition, subPartition) combination
         topicPartitionStreamRDD.flatMap {
           case (osr, messageItr: Iterator[KafkaMessageWithId[K, V]]) => messageItr.map {
             message =>
-              val subPartition = Some(localPartitionedWriter.getSubPartition(message.value))
-              (KafkaSubPartition[P](osr, subPartition), message)}
+              val subPartition = Some(closureWorker.getSubPartition(message.value))
+              (SubPartition[P](osr, subPartition), message)}
         }.groupByKey.map{
           case (partitionInfo, messages: Iterable[KafkaMessageWithId[K, V]]) => (partitionInfo, messages.iterator)}
       }
       else {
         topicPartitionStreamRDD.map {
-          case (osr, messageItr) =>(KafkaSubPartition[P](osr, None), messageItr)}}
-
-    val topicPartitionMeta: Seq[KafkaTopicPartitionMeta[P]] =
-      outputPartitionStreamRDD.map{
+          case (osr, messageItr) =>(SubPartition[P](osr, None), messageItr)}}
+    // collect the topicPartition level meta data back to driver. This action actually triggers the entire operation.
+    val topicPartitionMeta: Seq[TopicPartitionMeta] =
+      partitionedStreamRDD.map{
         case (subPartition, messageItr) =>
           val outputMeta =
             Try(
-              localPartitionedWriter.write(subPartition, messageItr)) match {
-              case Success(clientMeta) => KafkaSubPartitionMeta(subPartition, clientMeta)
-              case Failure(f) => KafkaSubPartitionMeta(subPartition, WriterClientMeta(0, 0, false, f.getMessage))}
+              closureWorker.write(subPartition, messageItr)) match {
+              case Success(clientMeta) => SubPartitionMeta(subPartition, clientMeta)
+              case Failure(f) => SubPartitionMeta(subPartition, WorkerMeta(0, 0, false, f.getMessage))}
           (subPartition.osr, outputMeta)
       }.groupByKey().map {
         case (osr, metaIterable) =>
-          val topicPartitionMeta = KafkaTopicPartitionMeta[P](osr)
+          val topicPartitionMeta = TopicPartitionMeta(osr)
           metaIterable.foreach(topicPartitionMeta.aggregate)
           topicPartitionMeta
       }.collect()
-
-    new KafkaExportMeta(topicPartitionMeta)
+    val meta = new KafkaExportMeta(topicPartitionMeta)
+    Try(meta.checkConsistency()) match {
+      case Success(_) =>
+      case Failure(f) => updateStatus(new StatusFatal(f, "Meta data inconsistent is fatal"))
+    }
+    meta
   }
 }

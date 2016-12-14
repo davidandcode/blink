@@ -33,7 +33,7 @@ object MainApp extends LazyLog{
     */
   def castPortal(configFile: String): String = {
     val properties = PortalProperties().loadProperties(configFile)
-    def get(name: String) = properties.get(name)
+    def get(name: String) = properties.getOrFail(name)
 
     /**
       * First initialize the engine

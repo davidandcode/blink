@@ -3,9 +3,8 @@ package com.creditkarma.blink.base
 import scala.util.{Failure, Success, Try}
 
 
-trait ImportMeta[D] {
+trait ImportMeta[D] extends Metrics{
   def delta: D
-  def metrics: Metrics
   def readTime: Long
   def shouldFlush: Boolean
 }
@@ -45,7 +44,7 @@ trait Importer[B <: BufferedData, C <: Checkpoint[D, C], D, M <: ImportMeta[D]] 
     Try(fetchData(sharedState.lastCheckpoint))
     match {
       case Success((data, meta)) =>
-        updateMetrics(meta.metrics)
+        updateMetrics(meta)
         phaseCompleted(Phase.Read)
         sharedState.setImporterDelta(meta.delta)
         sharedState.setImporterTime(meta.readTime)

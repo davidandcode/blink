@@ -3,8 +3,10 @@ package com.creditkarma.blink.impl.spark.importer.kafka
 import com.creditkarma.blink.base._
 import com.creditkarma.blink.impl.spark.buffer.SparkRDD
 import com.creditkarma.blink.impl.spark.tracker.kafka.KafkaCheckpoint
+import kafka.consumer.{Blacklist, TopicFilter, Whitelist}
 import org.apache.kafka.clients.consumer.{ConsumerRecord, KafkaConsumer}
 import org.apache.kafka.common.TopicPartition
+import org.apache.kafka.common.internals.TopicConstants
 import org.apache.spark.SparkContext
 import org.apache.spark.streaming.kafka010.LocationStrategies._
 import org.apache.spark.streaming.kafka010.{KafkaUtils, OffsetRange}
@@ -152,14 +154,15 @@ class KafkaImportMeta
         meta => meta.shouldFlush && meta.nextOffsetRange.count() > 0
       }.map(_.nextOffsetRange).toSeq
 
-  def metrics: Metrics = new Metrics {
-    override def metrics: Iterable[Metric] =
-      topicPartitionMetaData :+
-        new Metric {
-          override def dimensions: Map[Any, Any] = Map()
-          override def fields: Map[Any, Any] = Map("topics"->totalTopics, "messages"->totalMessages)
-        }
-  }
+
+  override def metrics: Iterable[Metric] =
+    topicPartitionMetaData :+
+      new Metric {
+        override def dimensions: Map[Any, Any] = Map()
+
+        override def fields: Map[Any, Any] = Map("topics" -> totalTopics, "messages" -> totalMessages)
+
+      }
 
   def totalTopics: Int = offsetRanges.map(_.topic).distinct.size
 
@@ -168,23 +171,38 @@ class KafkaImportMeta
   override def shouldFlush: Boolean = delta.nonEmpty
 }
 
-class KafkaSparkImporter[K, V](val kafkaParams: Map[String, Object])
+/**
+  * It may be arguable how to use the combination fo whitelist and blacklist.
+  * By convention, whitelist has higher priority: if a whitelist matches, the blacklist doesn't matter.
+  * When there are both a whitelist and blacklist, if neither whitelist nor blacklist matches, the topic is a macth as long as it passes the internal topci exclusion filter
+  * When there is only a whitelist, it has to match
+  * @param whitelist
+  * @param blacklist
+  * @param excludeInternalTopics
+  */
+class KafkaTopicFilter(whitelist: Option[Whitelist], blacklist: Option[Blacklist], excludeInternalTopics: Boolean = true){
+  def isAllowed(topic: String): Boolean = {
+    def isAllowed(filter: TopicFilter): Boolean = filter.isTopicAllowed(topic, excludeInternalTopics)
+    def passedInternalTopicCheck: Boolean = !(TopicConstants.INTERNAL_TOPICS.contains(topic) && excludeInternalTopics)
+    whitelist.exists(isAllowed) ||
+      whitelist.isEmpty && (blacklist.exists(isAllowed) || passedInternalTopicCheck)
+  }
+  override def toString: String = s"$whitelist, $blacklist, excludeInternalTopics=$excludeInternalTopics"
+}
+
+class KafkaSparkImporter[K, V](kafkaParams: Map[String, Object], topicFilter: KafkaTopicFilter, flushInterval: Long, flushSize: Long)
   extends Importer[SparkRDD[ConsumerRecord[K, V]], KafkaCheckpoint, Seq[OffsetRange], KafkaImportMeta] {
 
-  private val DefaultFlushInterval: Long = 1000
-  private val DefaultMaxRecordsPerPartition: Long = 1000
-
-  private var flushInterval: Long = DefaultFlushInterval // default in msec
   /**
     * Maximum number of records to flush per partition per cycle, extra records will be flushed next cycle
     * This is to limit the maximum size of each output file, when the velocity is high and writer directly map partitions to files with limited control.
     * On the other hand, if the writer has more control over how to write,
-    * then reader should always flush all available new data, making [[maxRecordsPerPartition]] unnecessary.
+    * then reader should always flush all available new data, making [[flushSize]] unnecessary.
     * The current design is to simply let reader control data flush based on both time and number of records, so that the system
-    * can have a well defined guarantee that the data latency is no more than [[maxRecordsPerPartition]] records per partition,
+    * can have a well defined guarantee that the data latency is no more than [[flushSize]] records per partition,
     * and never more than [[flushInterval]] ms in time, for all the topics - per topic level setting is also possible.
     * This can avoid having too many small files at the same time.
-    * It may results in a lot of large files, each with [[maxRecordsPerPartition]], when data velocity is high,
+    * It may results in a lot of large files, each with [[flushSize]], when data velocity is high,
     * or limited number of small files with no more than 1 file per [[flushInterval]].
     * It does not provide guarantee in terms of file size on the output side, which depends on many factors and is very hard to control,
     * such as average record size, content-dependent custom output partitioning rules, and compression.
@@ -193,18 +211,13 @@ class KafkaSparkImporter[K, V](val kafkaParams: Map[String, Object])
     * as well as the associated patterns of consumption.
     * Therefore, the current design is best in terms of simplicity of the guarantee and good balance among the tensions.
     */
-  private var maxRecordsPerPartition: Long = DefaultMaxRecordsPerPartition // default records
 
-  // configurations be chained through configuration object as opposed to the reader
-  def setMaxFetchRecordsPerPartition(n: Long): Unit = {
-    maxRecordsPerPartition = Math.max(1, n) // cannot be 0
-  }
+  /**
+    * cached consumer
+    */
+  private var _kafkaConsumer: Option[KafkaConsumer[K, V]] = None
 
-  def setFlushInterval(t: Long): Unit = {
-    flushInterval = t
-  }
-
-  def kafkaConsumer: KafkaConsumer[K, V] = {
+  private def kafkaConsumer: KafkaConsumer[K, V] = {
     _kafkaConsumer match {
       case Some(kc) => kc
       case None =>
@@ -222,19 +235,29 @@ class KafkaSparkImporter[K, V](val kafkaParams: Map[String, Object])
     }
   }
 
-  override def close(): Unit = {
+  private def closeConsumer(): Unit = {
     _kafkaConsumer match {
       case Some(kc) =>
-        updateStatus(new StatusOK(s"Closing kafka consumer in reader $this"))
+        updateStatus(new StatusOK(s"Closing kafka consumer"))
         kc.close()
         _kafkaConsumer = None
       case None =>
     }
   }
 
+  override def start(): Unit = {
+    super.start()
+    updateStatus(new StatusOK(s"Creating Kafka importer with topicFilter=${topicFilter}, flushInterval=$flushInterval, flushSize=$flushSize"))
+    assert(flushSize > 0 && flushInterval > 0)
+  }
+
+  override def close(): Unit = {
+    closeConsumer()
+  }
+
   private def listTopicPartitions(): Seq[TopicPartition] = {
     val topicPartitions: Seq[TopicPartition] = kafkaConsumer.listTopics().asScala.filter {
-      case (topic: String, _) => topicFilter(topic)
+      case (topic: String, _) => topicFilter.isAllowed(topic)
     }.flatMap(_._2.asScala).map {
       pi => new TopicPartition(pi.topic(), pi.partition())
     }.toSeq
@@ -263,7 +286,7 @@ class KafkaSparkImporter[K, V](val kafkaParams: Map[String, Object])
     }
 
     val meta = new KafkaImportMeta(readTime, checkpoint,
-      availableOffsetRanges, maxRecordsPerPartition, flushInterval)
+      availableOffsetRanges, flushSize, flushInterval)
 
     (
       new SparkRDD[ConsumerRecord[K, V]](
@@ -275,23 +298,6 @@ class KafkaSparkImporter[K, V](val kafkaParams: Map[String, Object])
         )),
       meta
       )
-  }
-  /**
-    * private internal mutable states
-    */
-  private var _kafkaConsumer: Option[KafkaConsumer[K, V]] = None
-
-  /**
-    * Kafka reader can be configured to read topics with several approach
-    * 1. Specific inclusion/exclusion list
-    * 2. Regex
-    * 3. Filter method
-    * A nicer interface can be exposed later to achieve both flexibility and ease-of-use
-    * @param topic
-    * @return
-    */
-  private def topicFilter(topic: String): Boolean = {
-    topic.indexOf("__consumer_offsets") == -1
   }
 
   override def checkpointFromEarliest(): KafkaCheckpoint = {
