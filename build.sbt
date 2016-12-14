@@ -4,6 +4,8 @@ version := "1.0"
 
 scalaVersion := "2.11.8"
 
+resolvers += "splunk-artifactory" at "http://splunk.artifactoryonline.com/splunk/ext-releases-local"
+
 libraryDependencies += "org.apache.spark" % "spark-sql_2.11" % "2.0.1"
 
 libraryDependencies += "org.apache.spark" % "spark-streaming_2.11" % "2.0.1"
