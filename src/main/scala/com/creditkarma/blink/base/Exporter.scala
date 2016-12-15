@@ -2,14 +2,18 @@ package com.creditkarma.blink.base
 
 import scala.util.{Failure, Success, Try}
 
-trait ExportMeta[Delta] extends Metrics{
+trait ExporterMetrics extends Metrics {
+  def outRecords: Long
+  def inRecords: Long
+}
+
+trait ExportMeta[Delta] extends ExporterMetrics{
   /**
     *
     * @return optionally return delta for partial checkpoint
     *         If none is returned, checkpoint will be all(on success) or nothing(on failure)
     */
   def delta: Option[Delta] = None
-  def outRecords: Long
 }
 
 /**

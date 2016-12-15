@@ -12,8 +12,6 @@ import com.google.api.services.storage.StorageScopes;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Collections;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 /**
  * Code cherry picked from Secor
@@ -21,8 +19,6 @@ import java.util.concurrent.Executors;
 public class GCSUtils {
 
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
-
-    private static final ExecutorService executor = Executors.newFixedThreadPool(256);
 
     /**
      * Global instance of the Storage. The best practice is to make it a single

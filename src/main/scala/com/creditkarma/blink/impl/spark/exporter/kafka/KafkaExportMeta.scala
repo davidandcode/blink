@@ -17,6 +17,8 @@ class KafkaExportMeta(meta: Seq[TopicPartitionMeta]) extends ExportMeta[Seq[Offs
     */
   override def outRecords: Long = completedTopicPartitions.map(_.completedRecords).sum
 
+  override def inRecords: Long = allOffsetRanges.map(_.count()).sum
+
   /**
     *
     * @return only checkpoint topicPartitions that are fully completed
