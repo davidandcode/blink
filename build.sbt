@@ -16,5 +16,13 @@ libraryDependencies += "info.batey.kafka" % "kafka-unit" % "0.6"
 
 libraryDependencies += "org.apache.geode" % "gemfire-joptsimple" % "1.0.0-incubating.M1"
 
+libraryDependencies += "net.minidev" % "json-smart" % "2.2.1"
+
 testOptions in Test := Seq(Tests.Filter(s => s.endsWith("ZookeeperServiceTest")))
+
+
+
+
+
+
 
