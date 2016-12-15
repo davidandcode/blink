@@ -169,6 +169,10 @@ class KafkaImportMeta
   def totalMessages: Long = offsetRanges.map(_.count()).sum
 
   override def shouldFlush: Boolean = delta.nonEmpty
+
+  override def inRecords: Long = delta.map(_.count()).sum
+
+  override def availableRecords: Long = offsetRanges.map(_.count()).sum
 }
 
 /**
