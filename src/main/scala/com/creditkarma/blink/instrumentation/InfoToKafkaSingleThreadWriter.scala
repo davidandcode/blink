@@ -10,7 +10,7 @@ import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
   * Created by shengwei.wang on 12/8/16.
   * This writer is designed to run in a single thread and it is NOT for general purpurse but only for instrumentation.
   */
-class InfoToKafkaSingleThreadWriter(host:String,port:String,topicName:String) {
+class InfoToKafkaSingleThreadWriter(host:String,port:String,topicName:String,seesionTO:String) {
   val keyString = "INSTRUMENTATION"
   val  props = new Properties()
   props.put("bootstrap.servers",host + ":" + port) //props.put("bootstrap.servers", "localhost:9092")
@@ -18,7 +18,7 @@ class InfoToKafkaSingleThreadWriter(host:String,port:String,topicName:String) {
   props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
   props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
   props.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
-  props.put("session.timeout.ms", "30000");
+  props.put("session.timeout.ms", seesionTO);
 
   val producer = new KafkaProducer[String, String](props)
 
