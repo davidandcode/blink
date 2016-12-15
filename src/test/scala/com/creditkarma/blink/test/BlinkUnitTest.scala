@@ -61,21 +61,23 @@ trait BlinkUnitTest extends FeatureSpec with BeforeAndAfterAll with GivenWhenThe
 
     scenario("Kafka should receive all messages") {
 
-      val mWriter = new InfoToKafkaSingleThreadWriter("localhost",s"${brokerPort}","SOME_TEST_TOPIC","20000")
+
+
+      val mWriter = new InfoToKafkaSingleThreadWriter("localhost",s"${brokerPort}","SOME_TEST_TOPIC","100000")
 
      val mSeq = new mutable.MutableList[String]
 
-      for(i <- 1 to 1000000){
+      for(i <- 1 to 10000000){
       mSeq += s"message:${i}"
       }
 
       mWriter.saveBlockToKafka(mSeq)
 
       val portalId = "test-portal"
-      val portal = getOrCreatePortal(portalId, flushSize = 1)
+      val portal = getOrCreatePortal(portalId, flushSize = 100)
 
       portal.registerInstrumentor(LogInfoInstrumentor()) // this is just to observe trace
-      val mInstrumentor = new InfoToKafkaInstrumentor(100,"localhost",s"${brokerPort}","metrics","200000")
+      val mInstrumentor = new InfoToKafkaInstrumentor(60000,"localhost",s"${brokerPort}","metrics","100000")
       portal.registerInstrumentor(mInstrumentor)
       portal.openPortal(OperationMode.ImporterDepletion, TimeMode.Origin)
 
