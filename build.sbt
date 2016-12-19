@@ -18,7 +18,7 @@ libraryDependencies += "info.batey.kafka" % "kafka-unit" % "0.6"
 
 libraryDependencies += "org.apache.geode" % "gemfire-joptsimple" % "1.0.0-incubating.M1"
 
-libraryDependencies += "com.splunk" % "splunk" % "1.5.0.0"
+libraryDependencies += "com.splunk" % "splunk" % "1.6.0.0"
 
 testOptions in Test := Seq(Tests.Filter(s => s.endsWith("ZookeeperServiceTest")))
 
