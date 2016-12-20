@@ -3,10 +3,8 @@ package com.creditkarma.blink.impl.spark.importer.kafka
 import com.creditkarma.blink.base._
 import com.creditkarma.blink.impl.spark.buffer.SparkRDD
 import com.creditkarma.blink.impl.spark.tracker.kafka.KafkaCheckpoint
-import kafka.consumer.{Blacklist, TopicFilter, Whitelist}
 import org.apache.kafka.clients.consumer.{ConsumerRecord, KafkaConsumer}
 import org.apache.kafka.common.TopicPartition
-import org.apache.kafka.common.internals.TopicConstants
 import org.apache.spark.SparkContext
 import org.apache.spark.streaming.kafka010.LocationStrategies._
 import org.apache.spark.streaming.kafka010.{KafkaUtils, OffsetRange}
@@ -175,24 +173,7 @@ class KafkaImportMeta
   override def availableRecords: Long = offsetRanges.map(_.count()).sum
 }
 
-/**
-  * It may be arguable how to use the combination fo whitelist and blacklist.
-  * By convention, whitelist has higher priority: if a whitelist matches, the blacklist doesn't matter.
-  * When there are both a whitelist and blacklist, if neither whitelist nor blacklist matches, the topic is a macth as long as it passes the internal topci exclusion filter
-  * When there is only a whitelist, it has to match
-  * @param whitelist
-  * @param blacklist
-  * @param excludeInternalTopics
-  */
-class KafkaTopicFilter(whitelist: Option[Whitelist], blacklist: Option[Blacklist], excludeInternalTopics: Boolean = true){
-  def isAllowed(topic: String): Boolean = {
-    def isAllowed(filter: TopicFilter): Boolean = filter.isTopicAllowed(topic, excludeInternalTopics)
-    def passedInternalTopicCheck: Boolean = !(TopicConstants.INTERNAL_TOPICS.contains(topic) && excludeInternalTopics)
-    whitelist.exists(isAllowed) ||
-      whitelist.isEmpty && (blacklist.exists(isAllowed) || passedInternalTopicCheck)
-  }
-  override def toString: String = s"$whitelist, $blacklist, excludeInternalTopics=$excludeInternalTopics"
-}
+
 
 class KafkaSparkImporter[K, V](kafkaParams: Map[String, Object], topicFilter: KafkaTopicFilter, flushInterval: Long, flushSize: Long)
   extends Importer[SparkRDD[ConsumerRecord[K, V]], KafkaCheckpoint, Seq[OffsetRange], KafkaImportMeta] {
