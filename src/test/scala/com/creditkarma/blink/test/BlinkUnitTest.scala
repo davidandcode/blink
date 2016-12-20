@@ -8,6 +8,7 @@ import com.creditkarma.blink.base.{OperationMode, Portal, StateTracker, TimeMode
 import com.creditkarma.blink.impl.spark.buffer.SparkRDD
 import com.creditkarma.blink.impl.spark.tracker.kafka.KafkaCheckpoint
 import com.creditkarma.blink.instrumentation.{InfoToKafkaInstrumentor, InfoToKafkaSingleThreadWriter, LogInfoInstrumentor}
+import net.minidev.json.{JSONObject, JSONValue}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.spark.streaming.kafka010.OffsetRange
@@ -67,7 +68,7 @@ trait BlinkUnitTest extends FeatureSpec with BeforeAndAfterAll with GivenWhenThe
 
      val mSeq = new mutable.MutableList[String]
 
-      for(i <- 1 to 10000000){
+      for(i <- 1 to 100000){
       mSeq += s"message:${i}"
       }
 
@@ -77,13 +78,16 @@ trait BlinkUnitTest extends FeatureSpec with BeforeAndAfterAll with GivenWhenThe
       val portal = getOrCreatePortal(portalId, flushSize = 100)
 
       portal.registerInstrumentor(LogInfoInstrumentor()) // this is just to observe trace
-      val mInstrumentor = new InfoToKafkaInstrumentor(60000,"localhost",s"${brokerPort}","metrics","100000")
+      val mInstrumentor = new InfoToKafkaInstrumentor(6000,"localhost",s"${brokerPort}","metrics","100000")
       portal.registerInstrumentor(mInstrumentor)
       portal.openPortal(OperationMode.ImporterDepletion, TimeMode.Origin)
 
+      assert(allMessages != null,"nothing flushed")
+
       for(temp <-allMessages){
         if(temp.topicPartition.topic().charAt(0) != '_' && temp.topicPartition.topic() == "metrics")
-        And("that is from Kafka: " + "topic = "+temp.topicPartition.topic() + " partition = " + temp.topicPartition.partition() + " and the message " + temp.value + " " + temp.key)
+          And("that is from Kafka: " + "topic = " + temp.topicPartition.topic() + " partition = " + temp.topicPartition.partition() + " and the message " + temp.value + " " + temp.key)
+
       }
 
 

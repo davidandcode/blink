@@ -1,18 +1,19 @@
 package com.creditkarma.blink.instrumentation
 
 import java.text.SimpleDateFormat
-import java.util.Date
+import java.util.{Calendar, Date}
 
 import com.creditkarma.blink.base._
 import com.creditkarma.blink.impl.spark.exporter.kafka.KafkaExportMeta
 import net.minidev.json.JSONObject
 import net.minidev.json.JSONValue
+import java.net._
+
+import org.apache.commons.lang3.time.DateUtils
 
 
 /**
   * Created by shengwei.wang on 12/8/16.
-  * TO-DO: 1) follow metrics schema
-  *        2) aggregated raw data
   *
   *{
    "nDateTime": "1997-07-16T19:20:30.451+16:00", // timestamp with milliseconds
@@ -38,6 +39,7 @@ class InfoToKafkaInstrumentor(flushInterval:Long,host:String,port:String,topicNa
   private val singleWriter = new InfoToKafkaSingleThreadWriter(host,port,topicName,sessionTo)
   private var dataBuffered:scala.collection.mutable.MutableList[String] = new scala.collection.mutable.MutableList[String]
   private val startTime:Long =  java.lang.System.currentTimeMillis()
+  private var portalId = ""
 
   private var prevFlashTime:Long = startTime
   private var cycleStart = 0L
@@ -59,17 +61,18 @@ class InfoToKafkaInstrumentor(flushInterval:Long,host:String,port:String,topicNa
     if((currentTs - prevFlashTime >= flushInterval) ){
 
       val format:SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX")
-      jsonObject.put("nDateTime",format.format(new Date(java.lang.System.currentTimeMillis())))
-      jsonObject.put("dataSource", "Blink_In")
+      jsonObject.put("nDateTime",format.format(new Date(currentTs)))
+      jsonObject.put("dataSource", "Blink_Out")
       jsonObject.put("eventType", "TableTopics_g0_t01_p0_DPMetrics")
-      jsonObject.put("nPDateTime", format.format(new Date(java.lang.System.currentTimeMillis())))
-      jsonObject.put("ipAddress", "123.123.123.123")
+      jsonObject.put("nPDateTime", format.format(DateUtils.truncate(new Date(currentTs), Calendar.HOUR)))
+      jsonObject.put("ipAddress", InetAddress.getLocalHost.getHostAddress )
+      jsonObject.put("userAgent",portalId)
       payloadObject.put("inRecords",totalInRecords.toString)
       payloadObject.put("outRecords",totalOutRecords.toString)
-      payloadObject.put("elapsedTime",(java.lang.System.currentTimeMillis()-cycleStart).toString)
-      payloadObject.put("tsEvent",java.lang.System.currentTimeMillis().toString)
+      payloadObject.put("elapsedTime",(currentTs - prevFlashTime).toString)
+      payloadObject.put("tsEvent",currentTs.toString)
       if(hasUpdates)
-      payloadObject.put("RecordsErrReason","there are " + numberOfCPFailures + " checkpoint failures and " + numberOfWriteFailures + " write failures" )
+        payloadObject.put("RecordsErrReason",s"there are ${numberOfCPFailures} checkpoint failures and ${numberOfWriteFailures} write failures." )
       else
         payloadObject.put("RecordsErrReason","there are no failures in this minute!" )
       jsonObject.put("payload",payloadObject.toJSONString())
@@ -101,6 +104,7 @@ class InfoToKafkaInstrumentor(flushInterval:Long,host:String,port:String,topicNa
   }
 
   override def updateStatus(module: CoreModule, status: Status): Unit = {
+    // need a better way to identify status
     if(module.moduleType == ModuleType.Core && status.message == "checkpoint commit failure" ){
       numberOfCPFailures += 1
       hasUpdates = true
@@ -113,14 +117,9 @@ class InfoToKafkaInstrumentor(flushInterval:Long,host:String,port:String,topicNa
 
   override def updateMetrics(module: CoreModule, metrics: Metrics): Unit = {
     if(module.moduleType == ModuleType.Writer){
-
-        for(tempOSR <- metrics.asInstanceOf[KafkaExportMeta].allOffsetRanges){
-          totalInRecords += tempOSR.count()
-        }
-
-        for(tempOSR <- metrics.asInstanceOf[KafkaExportMeta].completedOffsetRanges){
-          totalOutRecords += tempOSR.count()
-        }
+          portalId = module.portalId
+          totalInRecords += metrics.asInstanceOf[KafkaExportMeta].inRecords
+          totalOutRecords += metrics.asInstanceOf[KafkaExportMeta].outRecords
 
       if(totalInRecords > totalOutRecords) {
         hasUpdates = true
