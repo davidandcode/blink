@@ -71,10 +71,12 @@ class InfoToKafkaInstrumentor(flushInterval:Long,host:String,port:String,topicNa
       payloadObject.put("outRecords",totalOutRecords.toString)
       payloadObject.put("elapsedTime",(currentTs - prevFlashTime).toString)
       payloadObject.put("tsEvent",currentTs.toString)
-      if(hasUpdates)
-        payloadObject.put("RecordsErrReason",s"there are ${numberOfCPFailures} checkpoint failures and ${numberOfWriteFailures} write failures." )
-      else
-        payloadObject.put("RecordsErrReason","there are no failures in this minute!" )
+      if(hasUpdates) {
+        payloadObject.put("RecordsErrReason", s"there are ${numberOfCPFailures} checkpoint failures and ${numberOfWriteFailures} write failures.")
+      }
+      else {
+        payloadObject.put("RecordsErrReason", "there are no failures in this minute!")
+      }
       jsonObject.put("payload",payloadObject.toJSONString())
       dataBuffered += jsonObject.toJSONString()
 
