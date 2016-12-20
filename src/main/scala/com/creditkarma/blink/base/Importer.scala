@@ -3,7 +3,13 @@ package com.creditkarma.blink.base
 import scala.util.{Failure, Success, Try}
 
 
-trait ImportMeta[D] extends Metrics{
+trait ImporterMetrics extends Metrics {
+  // The importer may decide not to import all the available records, so they are separate metrics
+  def inRecords: Long
+  def availableRecords: Long
+}
+
+trait ImportMeta[D] extends ImporterMetrics {
   def delta: D
   def readTime: Long
   def shouldFlush: Boolean

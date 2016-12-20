@@ -26,35 +26,15 @@ class ExporterWithWorker[K, V, P]
   override def export(data: SparkRDD[ConsumerRecord[K, V]], sharedState: ExporterAccessor[KafkaCheckpoint, Seq[OffsetRange]]): KafkaExportMeta = {
     exportWorker.registerPortal(portalId) // portalId is not available at construction time
     val closureWorker = exportWorker // this reassignment is necessary for Spark not to attempt serializing the entire Exporter class
-    val offsetRangeByIndex = data.rdd.asInstanceOf[HasOffsetRanges].offsetRanges
+
     // convert KafkaRDD to a pair RDD of OffsetRange and its message stream
-    val topicPartitionStreamRDD: RDD[(OffsetRange, Iterator[KafkaMessageWithId[K, V]])] =
-      data.rdd.mapPartitionsWithIndex {
-        case (partitionIndex: Int, consumerRecords: Iterator[ConsumerRecord[K, V]]) =>
-          val osr = offsetRangeByIndex(partitionIndex)
-          val messageIterator =
-            consumerRecords.zipWithIndex.map {
-              case (cr: ConsumerRecord[K, V], messageIndex: Int) =>
-                KafkaMessageWithId(cr.key(), cr.value(), KafkaMessageId(osr.topicPartition, osr.fromOffset + messageIndex))}
-          Seq((osr, messageIterator)).iterator
-      }
+    val topicPartitionStreamRDD = getTopicPartitionRDD(data.rdd)
+
     // Divide the RDD into subPartitions using groupBy, which is an expensive operation requiring shuffling and buffering with worst case linear size.
     // The message becomes Iterable, not Iterator any more, reflecting the buffering. Its iterator is used in output to keep consistent API.
     // If subPartition is not used, it's simply an on-the-fly map transformation, the entire flow is streamlined without shuffling.
-    val partitionedStreamRDD: RDD[(SubPartition[P], Iterator[KafkaMessageWithId[K, V]])] =
-      if (closureWorker.useSubPartition) {
-        // when using subpartition, must perform a groupByKey on each records keyed by the (topicPartition, subPartition) combination
-        topicPartitionStreamRDD.flatMap {
-          case (osr, messageItr: Iterator[KafkaMessageWithId[K, V]]) => messageItr.map {
-            message =>
-              val subPartition = Some(closureWorker.getSubPartition(message.value))
-              (SubPartition[P](osr, subPartition), message)}
-        }.groupByKey.map{
-          case (partitionInfo, messages: Iterable[KafkaMessageWithId[K, V]]) => (partitionInfo, messages.iterator)}
-      }
-      else {
-        topicPartitionStreamRDD.map {
-          case (osr, messageItr) =>(SubPartition[P](osr, None), messageItr)}}
+    val partitionedStreamRDD = getSubPartitionRDD(topicPartitionStreamRDD, closureWorker)
+
     // collect the topicPartition level meta data back to driver. This action actually triggers the entire operation.
     val topicPartitionMeta: Seq[TopicPartitionMeta] =
       partitionedStreamRDD.map{
@@ -77,5 +57,35 @@ class ExporterWithWorker[K, V, P]
       case Failure(f) => updateStatus(new StatusFatal(f, "Meta data inconsistent is fatal"))
     }
     meta
+  }
+
+  private def getTopicPartitionRDD(kafkaRDD: RDD[ConsumerRecord[K, V]]): RDD[(OffsetRange, Iterator[KafkaMessageWithId[K, V]])] = {
+    val offsetRangeByIndex = kafkaRDD.asInstanceOf[HasOffsetRanges].offsetRanges
+    kafkaRDD.mapPartitionsWithIndex {
+      case (partitionIndex: Int, consumerRecords: Iterator[ConsumerRecord[K, V]]) =>
+        val osr = offsetRangeByIndex(partitionIndex)
+        val messageIterator =
+          consumerRecords.zipWithIndex.map {
+            case (cr: ConsumerRecord[K, V], messageIndex: Int) =>
+              KafkaMessageWithId(cr.key(), cr.value(), KafkaMessageId(osr.topicPartition, osr.fromOffset + messageIndex))}
+        Seq((osr, messageIterator)).iterator
+    }
+  }
+  private def getSubPartitionRDD(
+                 topicPartitionStreamRDD: RDD[(OffsetRange, Iterator[KafkaMessageWithId[K, V]])],
+                 exportWorker: ExportWorker[K, V, P]): RDD[(SubPartition[P], Iterator[KafkaMessageWithId[K, V]])] = {
+    if (exportWorker.useSubPartition) {
+      // when using subpartition, must perform a groupByKey on each records keyed by the (topicPartition, subPartition) combination
+      topicPartitionStreamRDD.flatMap {
+        case (osr, messageItr: Iterator[KafkaMessageWithId[K, V]]) => messageItr.map {
+          message =>
+            val subPartition = Some(exportWorker.getSubPartition(message.value))
+            (SubPartition[P](osr, subPartition), message)}
+      }.groupByKey.map{
+        case (partitionInfo, messages: Iterable[KafkaMessageWithId[K, V]]) => (partitionInfo, messages.iterator)}
+    }
+    else {
+      topicPartitionStreamRDD.map {
+        case (osr, messageItr) =>(SubPartition[P](osr, None), messageItr)}}
   }
 }

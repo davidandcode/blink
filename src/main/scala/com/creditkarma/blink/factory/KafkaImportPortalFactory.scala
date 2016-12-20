@@ -7,10 +7,7 @@ import com.creditkarma.blink.impl.spark.importer.kafka.KafkaTopicFilter
 import com.creditkarma.blink.impl.spark.tracker.kafka.ZooKeeperStateTracker
 import com.creditkarma.blink.instrumentation.LogInfoInstrumentor
 import kafka.consumer.{Blacklist, Whitelist}
-import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
-import org.scalactic.Fail
-
-import scala.util.{Failure, Success, Try}
+import org.apache.kafka.common.serialization.StringDeserializer
 
 /**
   * Create portals from Kafka specifically
@@ -61,10 +58,4 @@ trait KafkaExportWorkerCreator[K, V, P] extends SettableProperties {
   def writer: ExportWorker[K, V, P]
 }
 
-/**
-  * In order to use different key value types, and custom subPartition data structure
-  * Must create the concrete class without type parameter, and without constructor parameter, to be used in configuration file.
-  * The corresponding ExportWorkerCreator must have consistent type parameter
-  */
 class KafkaImportPortalFactoryStringType extends KafkaImportPortalFactory[String, String, String]
-

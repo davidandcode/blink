@@ -7,6 +7,7 @@ import org.apache.spark.{SparkConf, SparkContext}
   * Created by yongjia.wang on 11/30/16.
   */
 trait SparkLocalMaster {
+  startLocalSpark()
   def startLocalSpark(): Unit = {
     SparkContext.getOrCreate(new SparkConf().setAppName("test").setMaster("local[2]")
       .set("spark.driver.host", "127.0.0.1")
@@ -17,4 +18,5 @@ trait SparkLocalMaster {
     LogManager.getLogger("org.apache").setLevel(Level.WARN)
     LogManager.getLogger("kafka").setLevel(Level.WARN)
   }
+  def sc: SparkContext = SparkContext.getOrCreate()
 }

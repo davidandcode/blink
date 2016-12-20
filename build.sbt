@@ -1,4 +1,4 @@
-name := "logx"
+name := "blink"
 
 version := "1.0"
 
@@ -20,5 +20,14 @@ libraryDependencies += "org.apache.geode" % "gemfire-joptsimple" % "1.0.0-incuba
 
 libraryDependencies += "com.splunk" % "splunk" % "1.6.0.0"
 
+libraryDependencies += "net.minidev" % "json-smart" % "2.2.1"
+
+
 testOptions in Test := Seq(Tests.Filter(s => s.endsWith("ZookeeperServiceTest")))
+
+
+
+
+
+
 
