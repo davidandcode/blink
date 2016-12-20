@@ -2,8 +2,6 @@ package com.creditkarma.blink.instrumentation
 
 import java.util.Properties
 
-import kafkaUtils.KafkaCPUtils
-import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 
 /**
