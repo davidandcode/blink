@@ -67,7 +67,7 @@ public class y {
 
         // Retrieve the index that was created earlier
         Index myIndex = service.getIndexes().get("test_index");
-        //myIndex.clean(180);
+        myIndex.clean(180);
 
 // Retrieve properties
         System.out.println("Name:                " + myIndex.getName());
@@ -77,6 +77,8 @@ public class y {
         System.out.println("# of warm buckets:   " + myIndex.getNumWarmBuckets());
         System.out.println("Max data size:       " + myIndex.getMaxDataSize());
         System.out.println("Max total data size: " + myIndex.getMaxTotalDataSizeMB() + "MB");
+
+        /**
 
 // Modify a property and update the server
         myIndex.setMaxTotalDataSizeMB(myIndex.getMaxTotalDataSizeMB()-1);
@@ -111,8 +113,8 @@ public class y {
             Writer out = new OutputStreamWriter(ostream, "UTF8");
 
             // Send events to the socket then close it
-            out.write(date + "Event one!\r\n");
-            out.write(date + "Event two!\r\n");
+           // out.write(date + "Event one!\r\n");
+             //out.write(date + "Event two!\r\n");
             out.flush();
         } finally {
             socket.close();
@@ -123,7 +125,7 @@ public class y {
         Job job = service.getJobs().create(mySearch);
 
 // Wait for the job to finish
-        while (!job.isDone()) {
+       while (!job.isDone()) {
             Thread.sleep(500);
         }
 
@@ -138,7 +140,9 @@ public class y {
         }
         br.close();
 
-
+ **/
 
     }
+
+
 }
