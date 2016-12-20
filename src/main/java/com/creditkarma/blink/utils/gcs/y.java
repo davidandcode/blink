@@ -40,7 +40,7 @@ public class y {
         // Create a map of arguments and add login parameters
         ServiceArgs loginArgs = new ServiceArgs();
         loginArgs.setUsername("admin");
-        loginArgs.setPassword("changeme");
+        loginArgs.setPassword("changemeyes");
         loginArgs.setHost("localhost");
         loginArgs.setPort(8089);
 
