@@ -1,4 +1,4 @@
-name := "logx"
+name := "blink"
 
 version := "1.0"
 
