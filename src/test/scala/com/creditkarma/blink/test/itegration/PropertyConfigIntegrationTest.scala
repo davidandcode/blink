@@ -1,4 +1,4 @@
-package com.creditkarma.blink.test
+package com.creditkarma.blink.test.itegration
 
 import com.creditkarma.blink.MainApp
 import com.creditkarma.blink.factory.KafkaExportWorkerCreator
@@ -10,7 +10,7 @@ import org.scalatest.{BeforeAndAfterAll, WordSpec}
   * This integration test starts from a single configuration file to test end-to-end
   * In most other cases, integration test should start from any convenient entry points for most flexibility
   */
-class PropertyConfigIntegrationTest extends WordSpec with BeforeAndAfterAll with KafkaIntegrationTest[String, String]{
+class PropertyConfigIntegrationTest extends WordSpec with BeforeAndAfterAll with LocalKafka[String, String]{
 
   // port numbers must match the configuration file
   override val configuredPorts: Option[(Int, Int)] = Some((5678, 1234))

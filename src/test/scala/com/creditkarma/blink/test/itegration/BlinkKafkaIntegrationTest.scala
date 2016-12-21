@@ -1,9 +1,11 @@
-package com.creditkarma.blink.test
+package com.creditkarma.blink.test.itegration
+
 import com.creditkarma.blink.PortalConstructor
-import com.creditkarma.blink.base.{StateTracker, OperationMode, Portal, TimeMode}
+import com.creditkarma.blink.base.{OperationMode, Portal, StateTracker, TimeMode}
 import com.creditkarma.blink.impl.spark.buffer.SparkRDD
 import com.creditkarma.blink.impl.spark.tracker.kafka.KafkaCheckpoint
 import com.creditkarma.blink.instrumentation.LogInfoInstrumentor
+import com.creditkarma.blink.test.LocalSpark
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.spark.streaming.kafka010.OffsetRange
@@ -13,7 +15,7 @@ import org.scalatest._
   * This version only support plugging checkpoint service and the single threaded writer, which are the main focus of testing right now.
   * In the future, a more flexible testing trait can be used to plugin very thing including source data test data generator.
   */
-trait BlinkKafkaIntegrationTest extends FeatureSpec with BeforeAndAfterAll with GivenWhenThen with KafkaIntegrationTest[String, String] with SparkLocalMaster {
+trait BlinkKafkaIntegrationTest extends FeatureSpec with BeforeAndAfterAll with GivenWhenThen with LocalKafka[String, String] with LocalSpark {
   type Key = String
   type Value = String
   type Partition = String

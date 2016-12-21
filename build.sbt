@@ -1,28 +1,26 @@
-name := "blink"
+lazy val commonSettings = Seq(
+  name := "blink",
+  version := "0.0.0",
+  organization := "com.creditkarma",
+  scalaVersion := "2.11.8",
+  test in assembly := {}
+)
 
-version := "1.0"
+lazy val blink = (project in file(".")).
+  settings(commonSettings: _*).
+  settings(
+    mainClass in assembly := Some("com.creditkarma.blink.MainApp"),
+    libraryDependencies ++= Dependencies.blink,
 
-scalaVersion := "2.11.8"
-
-libraryDependencies += "org.apache.spark" % "spark-sql_2.11" % "2.0.1"
-
-libraryDependencies += "org.apache.spark" % "spark-streaming_2.11" % "2.0.1"
-
-libraryDependencies += "org.apache.spark" % "spark-streaming-kafka-0-10_2.11" % "2.0.1"
-
-libraryDependencies += "com.google.cloud.bigdataoss" % "gcs-connector" % "1.5.4-hadoop2"
-
-libraryDependencies += "info.batey.kafka" % "kafka-unit" % "0.6"
-
-libraryDependencies += "org.apache.geode" % "gemfire-joptsimple" % "1.0.0-incubating.M1"
-
-libraryDependencies += "net.minidev" % "json-smart" % "2.2.1"
-
-testOptions in Test := Seq(Tests.Filter(s => s.endsWith("ZookeeperServiceTest")))
-
-
-
-
-
-
-
+    assemblyMergeStrategy in assembly := {
+      // discard all the meta inf
+      case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+      case _ => MergeStrategy.first
+    },
+    testOptions in Test := Seq(
+      Tests.Filter(
+        s => s.endsWith("BlinkBasicIntegrationTest") ||
+          !s.contains("IntegrationTest") // only need to run 1 integration test, others should be covered by unit tests
+      ))
+    // more settings here ...
+  )
