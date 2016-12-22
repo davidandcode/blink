@@ -1,55 +1,13 @@
-package com.creditkarma.blink.test
-import com.creditkarma.blink.PortalConstructor
-import com.creditkarma.blink.base.{StateTracker, OperationMode, Portal, TimeMode}
-import com.creditkarma.blink.impl.spark.buffer.SparkRDD
-import com.creditkarma.blink.impl.spark.tracker.kafka.KafkaCheckpoint
+package com.creditkarma.blink.test.itegration
+
+import com.creditkarma.blink.base.{OperationMode, TimeMode}
 import com.creditkarma.blink.instrumentation.LogInfoInstrumentor
-import org.apache.kafka.clients.consumer.ConsumerRecord
-import org.apache.kafka.common.serialization.StringDeserializer
-import org.apache.spark.streaming.kafka010.OffsetRange
-import org.scalatest._
 /**
   * Kafka Integration Test trait with pluggable modules
   * This version only support plugging checkpoint service and the single threaded writer, which are the main focus of testing right now.
   * In the future, a more flexible testing trait can be used to plugin very thing including source data test data generator.
   */
-trait BlinkKafkaIntegrationTest extends FeatureSpec with BeforeAndAfterAll with GivenWhenThen with KafkaIntegrationTest[String, String] with SparkLocalMaster {
-  type Key = String
-  type Value = String
-  type Partition = String
-  type PortalType = Portal[SparkRDD[ConsumerRecord[Key, Value]], SparkRDD[ConsumerRecord[Key, Value]], KafkaCheckpoint, Seq[OffsetRange]]
-  type WriterType = CollectibleTestWriter[Key, Value, Partition]
-
-  def getWriter: WriterType
-  def getCheckpointService: StateTracker[KafkaCheckpoint]
-
-  private val _kafkaPortals = collection.mutable.Map.empty[String, PortalType]
-
-  val defaultFlushInterval = 1000
-  def getOrCreatePortal(portalId: String, flushSize: Long, flushInterval: Long = defaultFlushInterval): PortalType = {
-    _kafkaPortals.getOrElseUpdate(
-      portalId,
-      PortalConstructor.createKafkaSparkPortalWithSingleThreadedWriter(
-      portalId, Map[String, Object](
-          "bootstrap.servers" -> s"localhost:${brokerPort}",
-          "key.deserializer" -> classOf[StringDeserializer],
-          "value.deserializer" -> classOf[StringDeserializer],
-          "group.id" -> "test"
-        ), getWriter.writer, getCheckpointService, flushInterval, flushSize)
-    )
-  }
-
-  override def beforeAll(): Unit = {
-    startKafka()
-    startLocalSpark()
-    super.beforeAll()
-  }
-
-  override def afterAll(): Unit = {
-    super.afterAll()
-    shutDownKafka()
-  }
-
+trait BlinkKafkaIntegrationTest extends KafkaIntegrationTestBase {
 
   feature("Very simple basic test") {
 
