@@ -10,6 +10,7 @@ import scala.collection.JavaConversions._
 
 /**
   * Created by shengwei.wang on 12/9/16.
+  * This test requires a splunk instance up and running
   */
 class BlinkSplunkWriterIntegrationTest extends FlatSpec with KafkaIntegrationTest[String, String] with SparkLocalMaster  {
 
