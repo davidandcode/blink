@@ -1,5 +1,6 @@
-package com.creditkarma.blink.test
-import com.creditkarma.blink.impl.spark.exporter.kafka.{KafkaMessageWithId, ExportWorker, SubPartition, WorkerMeta}
+package com.creditkarma.blink.test.itegration
+
+import com.creditkarma.blink.impl.spark.exporter.kafka.{ExportWorker, KafkaMessageWithId, SubPartition, WorkerMeta}
 
 import scala.collection.mutable.ListBuffer
 

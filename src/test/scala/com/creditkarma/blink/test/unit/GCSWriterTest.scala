@@ -1,7 +1,8 @@
-package com.creditkarma.blink.test
+package com.creditkarma.blink.test.unit
 
 import com.creditkarma.blink.impl.spark.exporter.kafka.gcs.GCSWriter
 import com.creditkarma.blink.impl.spark.exporter.kafka.{KafkaMessageId, KafkaMessageWithId, SubPartition, WorkerMeta}
+import com.creditkarma.blink.test.{GCSTest, LocalSpark}
 import org.apache.kafka.common.TopicPartition
 import org.apache.spark.streaming.kafka010.OffsetRange
 import org.scalatest.FlatSpec
@@ -11,7 +12,7 @@ import scala.collection.mutable
 /**
   * Created by shengwei.wang on 12/11/16.
   */
-class GCSWriterTest extends FlatSpec with SparkLocalMaster with GCSTest{
+class GCSWriterTest extends FlatSpec with LocalSpark with GCSTest{
 
   val mGCSWriter: GCSWriter = new GCSWriter(
     "ts",

@@ -6,7 +6,7 @@ import org.apache.spark.{SparkConf, SparkContext}
 /**
   * Created by yongjia.wang on 11/30/16.
   */
-trait SparkLocalMaster {
+trait LocalSpark {
   startLocalSpark()
   def startLocalSpark(): Unit = {
     SparkContext.getOrCreate(new SparkConf().setAppName("test").setMaster("local[2]")
