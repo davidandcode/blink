@@ -1,14 +1,16 @@
-package com.creditkarma.blink.test
+package com.creditkarma.blink.test.itegration
 
 /**
   * Created by shengwei.wang on 12/21/16.
   */
 
 import java.io.{File, PrintWriter}
+
 import com.creditkarma.blink.MainApp
+import com.creditkarma.blink.test.LocalSpark
 import org.scalatest._
 
-class BlinkLocalWriterIntegrationTest extends FlatSpec with KafkaIntegrationTest[String, String] with SparkLocalMaster  {
+class BlinkLocalWriterIntegrationTest extends FlatSpec with LocalKafka[String, String] with LocalSpark  {
 
 
   override val configuredPorts: Option[(Int, Int)] = Some((5678, 1234))
