@@ -29,14 +29,14 @@ class BlinkLocalWriterIntegrationTest extends FlatSpec with LocalKafka[String, S
     val dir = "src/test/resources/generated_config"
     val fileName = s"$dir/kafka_local.properties"
     new File(dir).mkdirs()
-    new PrintWriter(fileName) { write(configWithSplunkPrefix); close }
+    new PrintWriter(fileName) { write(configWithLocalPrefix); close }
 
     val portalId = MainApp.castPortal(fileName)
 
     shutDownKafka()
   }
 
-  private def configWithSplunkPrefix = {
+  private def configWithLocalPrefix = {
     s"""
        |#===================================================================================================
        |# Blink portal configurations
