@@ -10,6 +10,8 @@ import com.creditkarma.blink.MainApp
 import com.creditkarma.blink.test.LocalSpark
 import org.scalatest._
 
+import scala.io.Source
+
 class BlinkLocalWriterIntegrationTest extends FlatSpec with LocalKafka[String, String] with LocalSpark  {
 
 
@@ -24,6 +26,11 @@ class BlinkLocalWriterIntegrationTest extends FlatSpec with LocalKafka[String, S
     sendMessage("LocalTest", "instrumentation", "This is the 1st message.")
     sendMessage("LocalTest", "instrumentation", "This is the 2nd message.")
     sendMessage("LocalTest", "instrumentation", "This is the 3rd message.")
+
+
+    //assert(Source.fromFile("src/test/resources/generated_local_output/test_file_integration").getLines().length == 6)
+
+    assert(Source.fromFile("src/test/resources/generated_local_output/test_file_integration").getLines().forall(line => line.startsWith("This is")))
 
 
     val dir = "src/test/resources/generated_config"
