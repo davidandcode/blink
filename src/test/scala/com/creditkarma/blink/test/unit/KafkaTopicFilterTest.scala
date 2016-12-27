@@ -1,4 +1,4 @@
-package com.creditkarma.blink.test
+package com.creditkarma.blink.test.unit
 
 import com.creditkarma.blink.impl.spark.importer.kafka.KafkaTopicFilter
 import kafka.consumer.{Blacklist, Whitelist}

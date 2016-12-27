@@ -1,6 +1,6 @@
-package com.creditkarma.blink.test
+package com.creditkarma.blink.test.itegration
 
-import com.creditkarma.blink.impl.spark.exporter.kafka.{KafkaMessageWithId, ExportWorker}
+import com.creditkarma.blink.impl.spark.exporter.kafka.{ExportWorker, KafkaMessageWithId}
 
 /**
   * This is for testing purpose, to collect what the single threaded writer have
