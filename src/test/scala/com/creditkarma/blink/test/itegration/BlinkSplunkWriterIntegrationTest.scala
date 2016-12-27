@@ -1,18 +1,20 @@
-package com.creditkarma.blink.test
+package com.creditkarma.blink.test.itegration
 
 import java.io.{File, InputStream, PrintWriter}
 import java.util
 
 import com.creditkarma.blink.MainApp
+import com.creditkarma.blink.test.LocalSpark
 import com.splunk._
 import org.scalatest._
+
 import scala.collection.JavaConversions._
 
 /**
   * Created by shengwei.wang on 12/9/16.
   * This test requires a splunk instance up and running
   */
-class BlinkSplunkWriterIntegrationTest extends FlatSpec with KafkaIntegrationTest[String, String] with SparkLocalMaster  {
+class BlinkSplunkWriterIntegrationTest extends FlatSpec with LocalKafka[String, String] with LocalSpark  {
 
 
   override val configuredPorts: Option[(Int, Int)] = Some((5678, 1234))

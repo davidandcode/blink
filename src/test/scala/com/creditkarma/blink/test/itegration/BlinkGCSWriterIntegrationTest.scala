@@ -1,14 +1,15 @@
-package com.creditkarma.blink.test
+package com.creditkarma.blink.test.itegration
 
 import java.io.{File, PrintWriter}
 
 import com.creditkarma.blink.MainApp
+import com.creditkarma.blink.test.{GCSTest, LocalSpark}
 import org.scalatest._
 
 /**
   * Created by shengwei.wang on 12/9/16.
   */
-class BlinkGCSWriterIntegrationTest extends FlatSpec with KafkaIntegrationTest[String, String] with SparkLocalMaster with GCSTest {
+class BlinkGCSWriterIntegrationTest extends FlatSpec with LocalKafka[String, String] with LocalSpark with GCSTest {
 
   sc.hadoopConfiguration.set("fs.gs.project.id", "295779567055")
   sc.hadoopConfiguration.set("fs.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem")
