@@ -39,7 +39,6 @@ class KafkaSinkInstrumentorIntegrationTest extends KafkaIntegrationTestBase {
 
       for(temp <-allMessages){
         if(temp.topicPartition.topic().charAt(0) != '_' && temp.topicPartition.topic() == "metrics"){
-          And("that is from Kafka: " + "topic = " + temp.topicPartition.topic() + " partition = " + temp.topicPartition.partition() + " and the message " + temp.value + " " + temp.key)
          val jsonObject = JSONValue.parse(temp.value ).asInstanceOf[JSONObject]
           assert(JSONValue.parse(jsonObject.getAsString("payload")).asInstanceOf[JSONObject].getAsNumber("nRecordsErr") == 0, "Blink should have no failure")
           assert(JSONValue.parse(jsonObject.getAsString("payload")).asInstanceOf[JSONObject].getAsString("RecordsErrReason") == "there are no failures in this minute!" , "Blink should have no failure")
