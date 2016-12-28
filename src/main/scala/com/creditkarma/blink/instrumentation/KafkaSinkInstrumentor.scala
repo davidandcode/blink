@@ -19,8 +19,8 @@ import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
   * "eventType": TableTopics_g0_t01_p[0|1|2]_DPMetrics, // TableTopic schema
   * "nPDateTime": "1997-07-16T19:00:00.000+16:00",
   * "payload": {
-  * "inRecords": "integer",
-  * "outRecords": "integer",
+  * "nRecords": "integer",
+  * "nRecordsErr": "integer",
   * "RecordsErrReason": "string",
   * "tsEvent": "integer",
   * "elapsedTime": "integer"
@@ -50,7 +50,7 @@ class KafkaSinkInstrumentor(flushInterval: Long, host: String, port: String, top
 
   private val metricsTemplate = """{"nDateTime": "", "dataSource": "", "eventType": "", "nPDateTime": "", "payload": "",  "ipAddress":"", "userAgent": "", "geoLocLat":"",   "geoLocLong": "" }"""
   private val jsonObject: JSONObject = JSONValue.parse(metricsTemplate).asInstanceOf[JSONObject]
-  private val payloadTemplate = """{"inRecords": "", "outRecords": "", "RecordsErrReason": "", "tsEvent": "", "elapsedTime": "" }"""
+  private val payloadTemplate = """{"nRecords": "", "nRecordsErr": "", "RecordsErrReason": "", "tsEvent": "", "elapsedTime": "" }"""
   private val payloadObject: JSONObject = JSONValue.parse(payloadTemplate).asInstanceOf[JSONObject]
 
   // a clousre to flush and reset
@@ -65,10 +65,10 @@ class KafkaSinkInstrumentor(flushInterval: Long, host: String, port: String, top
       jsonObject.put("nPDateTime", format.format(DateUtils.truncate(new Date(currentTs), Calendar.HOUR)))
       jsonObject.put("ipAddress", InetAddress.getLocalHost.getHostAddress)
       jsonObject.put("userAgent", portalId)
-      payloadObject.put("inRecords", totalInRecords.toString)
-      payloadObject.put("outRecords", totalOutRecords.toString)
-      payloadObject.put("elapsedTime", (currentTs - prevFlashTime).toString)
-      payloadObject.put("tsEvent", currentTs.toString)
+      payloadObject.put("nRecords", totalInRecords.toString)
+      payloadObject.put("nRecordsErr", (totalInRecords-totalOutRecords).toString)
+      payloadObject.put("elapsedTime", ((currentTs - prevFlashTime)/1000).toString)
+      payloadObject.put("tsEvent", (currentTs/1000).toString)
       if (hasUpdates)
         payloadObject.put("RecordsErrReason", s"there are ${numberOfCPFailures} checkpoint failures and ${numberOfWriteFailures} write failures.")
       else
