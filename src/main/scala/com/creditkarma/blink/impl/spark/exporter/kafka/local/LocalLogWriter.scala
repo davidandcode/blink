@@ -18,25 +18,20 @@ class LocalLogWriter(localFileName:String,maxFileSize:String,MaxBackupIndex:Stri
 
   override def write(partition: SubPartition[String], data: Iterator[KafkaMessageWithId[String, String]]): WorkerMeta = {
 
-   var lines =0
-   var bytes=0
-
+    var lines =0
+    var bytes=0
     val logger = LocalLogWriter.getOrCreateMlogger(localFileName,maxFileSize,MaxBackupIndex)
 
     Try({
-
       for (line <- data) {
-
         logger.info(line.value)
         lines += 1
         bytes += line.value.getBytes().length
       }
-
     }) match {
       case Success(_) => new WorkerMeta(lines, bytes, true)
       case Failure(f) => new WorkerMeta(lines, bytes, false, Throwables.getStackTraceAsString(f))
     }
-
   }
 }
 
@@ -47,28 +42,20 @@ object LocalLogWriter{
 
       val props:Properties = new Properties()
       props.put("log4j.rootLogger", "INFO, FOO")
-
       //props.put("log4j.logger.com.creditkarma.blink.impl.spark.exporter.kafka.local.LocalLogWriter", "INFO, FOO")
       //props.put("log4j.logger.LocalLogWriter", "INFO, FOO")
       //props.put("log4j.logger.com.creditkarma.blink.impl.spark.exporter.kafka.local.LocalLogWriter", "true")
       //props.put("log4j.additivity.LocalLogWriter", "true")
-
       props.put("log4j.appender.FOO", "org.apache.log4j.RollingFileAppender")
       props.put("log4j.appender.FOO.layout", "org.apache.log4j.PatternLayout")
       props.put("log4j.appender.FOO.layout.ConversionPattern", "%m%n")
-
       props.put("log4j.appender.FOO.MaxFileSize", s"${maxFileSize}")
       props.put("log4j.appender.FOO.MaxBackupIndex", s"${MaxBackupIndex}")
-
       props.put("log4j.appender.FOO.File", s"${fName}")
-
-
       LogManager.resetConfiguration()
       PropertyConfigurator.configure(props)
 
-
       val mlogger = LogManager.getLogger(this.getClass)
-
       _mlogger = Some(mlogger)
       mlogger
     }
