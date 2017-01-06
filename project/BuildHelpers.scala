@@ -31,3 +31,9 @@ object Dependencies {
   val blink = mainDependencies ++ testDependencies.map(_ % Test)
 }
 
+object TestConfig {
+  def isJenkinsBuildTest(test: String): Boolean = {
+    test.endsWith("BlinkBasicIntegrationTest") ||
+      test.endsWith("GCSWriterTest") || test.endsWith("KafkaTopicFilterTest")
+  }
+}

@@ -20,8 +20,7 @@ lazy val blink = (project in file(".")).
     },
     testOptions in Test := Seq(
       Tests.Filter(
-        s => s.endsWith("BlinkBasicIntegrationTest") ||
-          !s.contains("IntegrationTest") // only need to run 1 integration test, others should be covered by unit tests
+        s => TestConfig.isJenkinsBuildTest(s)
       ))
     // more settings here ...
   )
