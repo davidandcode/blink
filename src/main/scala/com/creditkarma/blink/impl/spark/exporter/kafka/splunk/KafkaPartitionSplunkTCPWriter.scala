@@ -12,7 +12,7 @@ import scala.util.{Failure, Success, Try}
 /**
   * Created by shengwei.wang on 12/10/16.
   */
-class KafkaPartitionSplunkTCPWriter(address:Array[(String,String)]) extends ExportWorker[String, String, String]{
+class KafkaPartitionSplunkTCPWriter(address:Array[(String,String),]) extends ExportWorker[String, String, String]{
 
   override def useSubPartition: Boolean = false
   override def getSubPartition(payload: String): String = ""
@@ -25,7 +25,6 @@ class KafkaPartitionSplunkTCPWriter(address:Array[(String,String)]) extends Expo
 
     var clientSocket:Socket = null
 
-    // Create a Service instance and log in with the argument map
     while(clientSocket == null){
       try {
         clientSocket = new Socket(host, port.toInt)
