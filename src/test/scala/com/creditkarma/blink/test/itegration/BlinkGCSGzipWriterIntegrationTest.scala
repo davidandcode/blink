@@ -9,7 +9,7 @@ import org.scalatest._
 /**
   * Created by shengwei.wang on 12/9/16.
   */
-class BlinkGCSWriterIntegrationTest extends FlatSpec with LocalKafka[String, String] with LocalSpark with GCSTest {
+class BlinkGCSGzipWriterIntegrationTest extends FlatSpec with LocalKafka[String, String] with LocalSpark with GCSTest {
 
   sc.hadoopConfiguration.set("fs.gs.project.id", "295779567055")
   sc.hadoopConfiguration.set("fs.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem")
@@ -39,25 +39,25 @@ class BlinkGCSWriterIntegrationTest extends FlatSpec with LocalKafka[String, Str
 
     val portalId = MainApp.castPortal(fileName)
 
-    val myRDD1 = sc.textFile(s"gs://$gcsTestPath/SaturdayEvening/2014/05/07/0_0.json")
+    val myRDD1 = sc.textFile(s"gs://$gcsTestPath/SaturdayEvening/2014/05/07/0_0.gz")
     val local1 = myRDD1.toLocalIterator
     assert(local1.next() == "{\"dwNumericId\":5446427592603205633,\"traceId\":\"3a47bfd7-f050-424a-8bb3-1e84a3ab995a\",\"policyHolderId\":73,\"accidentIdx\":1,\"yearMonth\":\"2015-03-00T00:00:00-0800\",\"incidentType\":\"MINOR\",\"tsEvent\":\"1453492695.320\",\"driverIdx\":1,\"source\":\"web014.be.prod.iad1.ckint.io\",\"schemaName\":\"Accident.json\",\"version\":\"3c4eb462888500d9f161b4d637123e72\",\"ts\":\"2014-05-07T14:22:35.863513-08:00\"}")
 
 
-    val myRDD2 = sc.textFile(s"gs://$gcsTestPath/SaturdayEvening/2016/11/27/0_0.json")
+    val myRDD2 = sc.textFile(s"gs://$gcsTestPath/SaturdayEvening/2016/11/27/0_0.gz")
     val local2 = myRDD2.toLocalIterator
     assert(local2.next() == "{\"dwNumericId\":5446427592603205633,\"traceId\":\"3a47bfd7-f050-424a-8bb3-1e84a3ab995a\",\"policyHolderId\":73,\"accidentIdx\":1,\"yearMonth\":\"2015-03-00T00:00:00-0800\",\"incidentType\":\"MINOR\",\"tsEvent\":\"1453492695.320\",\"driverIdx\":1,\"source\":\"web014.be.prod.iad1.ckint.io\",\"schemaName\":\"Accident.json\",\"version\":\"3c4eb462888500d9f161b4d637123e72\",\"ts\":\"2016-11-27T14:22:35.863513-08:00\"}")
 
-    val myRDD3 = sc.textFile(s"gs://$gcsTestPath/SaturdayEvening/2019/05/07/0_0.json")
+    val myRDD3 = sc.textFile(s"gs://$gcsTestPath/SaturdayEvening/2019/05/07/0_0.gz")
     val local3 = myRDD3.toLocalIterator
     assert(local3.next() == "{\"dwNumericId\":5446427592603205633,\"traceId\":\"3a47bfd7-f050-424a-8bb3-1e84a3ab995a\",\"policyHolderId\":73,\"accidentIdx\":1,\"yearMonth\":\"2015-03-00T00:00:00-0800\",\"incidentType\":\"MINOR\",\"tsEvent\":\"1453492695.320\",\"driverIdx\":1,\"source\":\"web014.be.prod.iad1.ckint.io\",\"schemaName\":\"Accident.json\",\"version\":\"3c4eb462888500d9f161b4d637123e72\",\"ts\":\"2019-05-07T14:22:35.863513-08:00\"}")
 
-    val myRDD4 = sc.textFile(s"gs://$gcsTestPath/SaturdayEvening/2016/12/12/0_0.json")
+    val myRDD4 = sc.textFile(s"gs://$gcsTestPath/SaturdayEvening/2016/12/12/0_0.gz")
     val local4 = myRDD4.toLocalIterator
     assert(local4.next() == "{\"dwNumericId\":5446427592603205633,\"traceId\":\"3a47bfd7-f050-424a-8bb3-1e84a3ab995a\",\"policyHolderId\":73,\"accidentIdx\":1,\"yearMonth\":\"2015-03-00T00:00:00-0800\",\"incidentType\":\"MINOR\",\"tsEvent\":\"1453492695.320\",\"driverIdx\":1,\"source\":\"web014.be.prod.iad1.ckint.io\",\"schemaName\":\"Accident.json\",\"version\":\"3c4eb462888500d9f161b4d637123e72\",\"ts\":\"2016-12-12T14:22:35.863513-08:00\"}")
     assert(local4.next() == "{\"dwNumericId\":5446427592603205633,\"traceId\":\"3a47bfd7-f050-424a-8bb3-1e84a3ab995a\",\"policyHolderId\":73,\"accidentIdx\":1,\"yearMonth\":\"2015-03-00T00:00:00-0800\",\"incidentType\":\"MINOR\",\"tsEvent\":\"1453492695.320\",\"driverIdx\":1,\"source\":\"web014.be.prod.iad1.ckint.io\",\"schemaName\":\"Accident.json\",\"version\":\"3c4eb462888500d9f161b4d637123e72\",\"ts\":\"2016-12-12T14:22:35.863000-08:00\"}")
 
-    val myRDD5 = sc.textFile(s"gs://$gcsTestPath/SaturdayEvening/1969/12/31/0_0.json")
+    val myRDD5 = sc.textFile(s"gs://$gcsTestPath/SaturdayEvening/1969/12/31/0_0.gz")
     val local5 = myRDD5.toLocalIterator
     assert(local5.next() == "{\"xyz\":fd,\"traceId\":\"3a47bfd7-f050-424a-8bb3-1e84a3ab995ancidentType\":\"MINOR\",\"tsEvent\":\"1453492695.320\",\"driverIdx\":1,\"source\":\"web014.be.prod.iad1.ckint.io\",\"schemaName\":\"Accident.json\",\"version\":\"3c4eb462888500d9f161b4d637123e72\",\"ts\":\"20a19-05-07T14:22:35.863513-08:00\"}")
     assert(local5.next() == "{\"dwNumericId\":5446427592603205633,\"traceId\":\"3a47bfd7-f050-424a-8bb3-1e84a3ab995a\",\"policyHolderId\":73,\"accidentIdx\":1,\"yearMonth\":\"2015-03-00T00:00:00-0800\",\"incidentType\":\"MINOR\",\"tsEvent\":\"1453492695.320\",\"driverIdx\":1,\"source\":\"web014.be.prod.iad1.ckint.io\",\"12-11T14:22:35.863513-08:00\"")
@@ -91,12 +91,12 @@ s"""
    |blink.portal.factory.properties.writer.creator.properties.connectTimeoutMs=10000
    |blink.portal.factory.properties.writer.creator.properties.readTimeoutMs=10000
    |blink.portal.factory.properties.writer.creator.properties.bucketName=dataeng_test
-   |blink.portal.factory.properties.writer.creator.properties.outputAppString=application/json
+   |blink.portal.factory.properties.writer.creator.properties.outputAppString=application/gz
    |blink.portal.factory.properties.writer.creator.properties.metaData=priority,high;period,60
    |blink.portal.factory.properties.writer.creator.properties.cacheControl=
-   |blink.portal.factory.properties.writer.creator.properties.outputFileExtension=json
+   |blink.portal.factory.properties.writer.creator.properties.outputFileExtension=gz
    |blink.portal.factory.properties.writer.creator.properties.pathPrefix=${gcsPrefix}
-   |blink.portal.factory.properties.writer.creator.properties.compression=false
+   |blink.portal.factory.properties.writer.creator.properties.compression=true
    |
  |#===================================================================================================
    |# Blink engine configurations

@@ -5,7 +5,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 
 import com.creditkarma.blink.impl.spark.exporter.kafka._
-import com.creditkarma.blink.utils.gcs.GCSUtils
+import com.creditkarma.blink.utils.gcs.{GCSUtils, GzipCompressingInputStream}
 import com.creditkarma.blink.utils.writer.CkAutoTsMessageParser
 import com.google.api.client.http.InputStreamContent
 import com.google.api.services.storage.model.StorageObject
@@ -45,7 +45,8 @@ class GCSWriter(
       metaData: String,
       cacheControl: String,
       outputFileExtension: String,
-      pathPrefix: String) extends ExportWorker[String, String, String] {
+      pathPrefix: String,
+      compression:String) extends ExportWorker[String, String, String] {
 
   override def useSubPartition: Boolean = true
 
@@ -125,8 +126,11 @@ class GCSWriter(
               .setMetadata(metaDataKeyValue.toMap.asJava)
               .setCacheControl(cacheControl)
               .setName(makeOutputPath(partition)),
-            new InputStreamContent(outputAppString, mStream)
-          )
+            compression.toLowerCase match {
+              case "false" => new InputStreamContent (outputAppString, mStream)
+              case "true" => new InputStreamContent (outputAppString, new GzipCompressingInputStream (mStream) )
+            }
+            )
       request.getMediaHttpUploader.setDirectUploadEnabled(true)
       request
     }

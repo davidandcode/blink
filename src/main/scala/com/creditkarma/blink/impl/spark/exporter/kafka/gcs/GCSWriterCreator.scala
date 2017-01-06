@@ -20,6 +20,7 @@ class GCSWriterCreator extends KafkaExportWorkerCreator[String, String, String] 
     val cacheControl = get("cacheControl").getOrElse("")
     val outputFileExtension = get("outputFileExtension").getOrElse("")
     val pathPrefix = get("pathPrefix").getOrElse("")
+    val compression = getOrFail("compression")
 
     // validation must be done in the main thread before the writer objects are created and later serialized to each task
     Try(new TimePartitioner(partitionFormat)) match {
@@ -40,7 +41,8 @@ class GCSWriterCreator extends KafkaExportWorkerCreator[String, String, String] 
       metaData,
       cacheControl,
       outputFileExtension,
-      pathPrefix
+      pathPrefix,
+      compression
     )
   }
 }

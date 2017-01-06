@@ -27,7 +27,8 @@ class GCSWriterTest extends FlatSpec with LocalSpark with GCSTest{
     "priority,high;period,60",
     "",
     "json",
-    gcsPrefix
+    gcsPrefix,
+    "false"
   )
 
   sc.hadoopConfiguration.set("fs.gs.project.id", "295779567055")
