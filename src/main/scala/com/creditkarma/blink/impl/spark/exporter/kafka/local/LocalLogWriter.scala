@@ -9,7 +9,7 @@ import scala.util.{Failure, Success, Try}
 /**
   * Created by shengwei.wang on 12/21/16.
   */
-class LocalLogWriter(localFileName:String,maxFileSize:String,MaxBackupIndex:String) extends ExportWorker[String, String, String] {
+class LocalLogWriter(localFileName:String, maxFileSize:String, MaxBackupIndex:String) extends ExportWorker[String, String, String] {
   override def useSubPartition: Boolean = false
   override def getSubPartition(payload: String): String = ""
 
@@ -34,7 +34,7 @@ class LocalLogWriter(localFileName:String,maxFileSize:String,MaxBackupIndex:Stri
 
 object LocalLogWriter{
   var _mlogger: Option[Logger] = None
-  def getOrCreateMlogger(fName:String,maxFileSize:String,MaxBackupIndex:String): Logger = _mlogger.synchronized {
+  def getOrCreateMlogger(fName:String, maxFileSize:String, MaxBackupIndex:String): Logger = _mlogger.synchronized {
     _mlogger.getOrElse {
 
       val mlogger = LogManager.getLogger(this.getClass)
