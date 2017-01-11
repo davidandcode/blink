@@ -5,6 +5,7 @@ import java.text.SimpleDateFormat
 import java.util.{Calendar, Date, Properties}
 
 import com.creditkarma.blink.base._
+import com.creditkarma.blink.impl.spark.exporter.kafka.KafkaExportMeta
 import net.minidev.json.{JSONObject, JSONValue}
 import org.apache.commons.lang3.time.DateUtils
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
@@ -37,7 +38,7 @@ import scala.collection.mutable.MutableList
 class KafkaSinkInstrumentor(flushInterval: Long, host: String, port: String, topicName: String, sessionTimeOutMS: Long) extends Instrumentor {
   val kafkaWriter = new KafkaWriter()
 
-  private val dataBuffered: MutableList[String] = MutableList.empty
+  private var dataBuffered: MutableList[String] = MutableList.empty
   private val startTime: Long = java.lang.System.currentTimeMillis()
   private var portalId = ""
 
@@ -63,7 +64,9 @@ class KafkaSinkInstrumentor(flushInterval: Long, host: String, port: String, top
 
   def flush(force: Boolean = false): Unit = {
     val currentTs = java.lang.System.currentTimeMillis()
+
     if (force || (currentTs - prevFlashTime >= flushInterval)) {
+
       jsonObject.put("userAgent", portalId)
       val format: SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX")
       jsonObject.put("nDateTime", format.format(new Date(currentTs)))
@@ -72,7 +75,7 @@ class KafkaSinkInstrumentor(flushInterval: Long, host: String, port: String, top
       payloadObject.put("nRecordsErr", (totalInRecords-totalOutRecords).toString)
       payloadObject.put("elapsedTime", ((currentTs - prevFlashTime)/1000).toString)
       payloadObject.put("tsEvent", (currentTs/1000).toString)
-      payloadObject.put("nCycles", batchCycles.toString) // how many blink cycles have passed
+      payloadObject.put("nCycles", batchCycles.toString + " xxxxxx " + cycleId + " XXXXXXXXX " + (currentTs - prevFlashTime >= flushInterval)) // how many blink cycles have passed
       if (hasUpdates){
         payloadObject.put("RecordsErrReason", s"there are ${numberOfCPFailures} checkpoint failures and ${numberOfWriteFailures} write failures.")
       }
@@ -83,8 +86,13 @@ class KafkaSinkInstrumentor(flushInterval: Long, host: String, port: String, top
       jsonObject.put("payload", payloadObject.toJSONString())
       dataBuffered += jsonObject.toJSONString()
 
-      kafkaWriter.saveBlockToKafka(dataBuffered)
+
+      val dest = dataBuffered map {x => x}
+      kafkaWriter.saveBlockToKafka(dest)
+
+      //dataBuffered = MutableList.empty
       dataBuffered.clear()
+
       prevFlashTime = currentTs
       hasUpdates = false
       numberOfCPFailures = 0
@@ -127,8 +135,12 @@ class KafkaSinkInstrumentor(flushInterval: Long, host: String, port: String, top
   override def updateMetrics(module: CoreModule, metrics: Metrics): Unit = {
     if (module.moduleType == ModuleType.Writer) {
       portalId = module.portalId
-      totalInRecords += metrics.asInstanceOf[ExporterMetrics].inRecords
-      totalOutRecords += metrics.asInstanceOf[ExporterMetrics].outRecords
+      //totalInRecords += metrics.asInstanceOf[ExporterMetrics].inRecords
+      //totalOutRecords += metrics.asInstanceOf[ExporterMetrics].outRecords
+
+      totalInRecords += metrics.asInstanceOf[KafkaExportMeta].inRecordsUseful
+      totalOutRecords += metrics.asInstanceOf[KafkaExportMeta].outRecordsUseful
+
       batchCycles += 1
 
       if (totalInRecords > totalOutRecords) {
@@ -156,6 +168,8 @@ class KafkaSinkInstrumentor(flushInterval: Long, host: String, port: String, top
     props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
     props.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
     props.put("session.timeout.ms", sessionTimeOutMS.toString);
+    //props.put("producer.type", "sync")
+    props.put("acks", "all")
     val producer = new KafkaProducer[String, String](props)
 
     def saveBlockToKafka(blockData: Seq[String]): Unit = {
@@ -163,7 +177,12 @@ class KafkaSinkInstrumentor(flushInterval: Long, host: String, port: String, top
         val record = new ProducerRecord[String, String](topicName, null, eachLine)
         producer.send(record)
       }
+
+      producer.flush()
+
       // start a new thread to flush metrics, the caller should not be blocked
+
+      /**
       new Thread(
         new Runnable {
           override def run(): Unit = {
@@ -171,7 +190,9 @@ class KafkaSinkInstrumentor(flushInterval: Long, host: String, port: String, top
             producer.flush()
           }
         }
-      ).run()
+      ).start()
+
+        **/
     }
   }
 }

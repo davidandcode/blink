@@ -21,34 +21,56 @@ class KafkaSinkInstrumentorIntegrationTest extends KafkaIntegrationTestBase {
       Given("1 topic created")
       createTopic("test1", 1)
 
-      val nMessage = 3000
+      val nMessage = 5000
 
       for (i <- 1 to nMessage) {
         sendMessage("test1", "testingkey", s"message${i}")
       }
 
 
-      val portalId = "test-portal"
-      val portal = getOrCreatePortal(portalId, flushSize = 100)
 
-      portal.registerInstrumentor(LogInfoInstrumentor()) // this is just to observe trace
-      val mInstrumentor = new KafkaSinkInstrumentor(60000, "localhost", s"${brokerPort}", "metrics", 100000)
+      val portalId = "test-portal"
+      val portal = getOrCreatePortal(portalId, flushSize = 10)
+
+     // portal.registerInstrumentor(LogInfoInstrumentor()) // this is just to observe trace
+      val mInstrumentor = new KafkaSinkInstrumentor(6, "localhost", s"${brokerPort}", "metrics", 100000)
       portal.registerInstrumentor(mInstrumentor)
       portal.openPortal(OperationMode.ImporterDepletion, TimeMode.Origin)
 
+
+      Thread.sleep(20000)
+
       assert(allMessages != null, "nothing flushed")
 
+      var sumNRecords = 0
+      var sumN = 0
+
       for (temp <- allMessages) {
-        if (temp.topicPartition.topic().charAt(0) != '_' && temp.topicPartition.topic() == "metrics") {
+        if (temp.topicPartition.topic() == "metrics") {
           val jsonObject = JSONValue.parse(temp.value).asInstanceOf[JSONObject]
+
+          println(jsonObject)
           assert(JSONValue.parse(jsonObject.getAsString("payload")).asInstanceOf[JSONObject].getAsNumber("nRecordsErr") == 0, "Blink should have no failure")
           assert(JSONValue.parse(jsonObject.getAsString("payload")).asInstanceOf[JSONObject].getAsString("RecordsErrReason") == "there are no failures in this minute!", "Blink should have no failure")
           assert(JSONValue.parse(jsonObject.getAsString("payload")).asInstanceOf[JSONObject].getAsString("RecordsErrReason") == "there are no failures in this minute!", "Blink should have no failure")
           assert(jsonObject.getAsString("eventType") == "TableTopics_g0_t01_p0_DPMetrics")
           assert(jsonObject.getAsString("dataSource") == "Blink_Out")
           assert(jsonObject.getAsString("userAgent") == portalId)
+
+
+          sumNRecords += JSONValue.parse(jsonObject.getAsString("payload")).asInstanceOf[JSONObject].getAsNumber("nRecords").intValue()
+
+          sumN +=1
+
+
         }
+
+
       }
+
+      println(sumN)
+      println(sumNRecords)
+
     }
   }
 }
