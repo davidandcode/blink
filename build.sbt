@@ -1,3 +1,5 @@
+import sbtassembly.AssemblyKeys
+
 lazy val commonSettings = Seq(
   name := "blink",
   version := "0.0.0",
@@ -23,3 +25,25 @@ lazy val blink = (project in file(".")).
       ))
     // more settings here ...
   )
+
+// define release task
+TaskKey[File]("release") <<= (
+  AssemblyKeys.assembly,
+  Keys.target,
+  Keys.name,
+  Keys.version) map {
+  (
+    assemblyJar: File,
+    target: File,
+    name: String,
+    version: String) =>
+
+    val zipFile = target / (name + "-" + version + ".zip")
+    val config = file("./config")
+
+    // list directory recursively
+    def entries(f: File): List[File] = f :: (if (f.isDirectory) IO.listFiles(f).toList.flatMap(entries(_)) else Nil)
+    // zip configuration file and the assemblyJar
+    IO.zip(entries(config).map(d => (d, d.getPath)) :+ (assemblyJar, assemblyJar.getName), zipFile)
+    zipFile
+}
