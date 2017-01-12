@@ -5,7 +5,7 @@ import com.creditkarma.blink.base.PortalController
 import com.creditkarma.blink.impl.spark.exporter.kafka.ExportWorker
 import com.creditkarma.blink.impl.spark.importer.kafka.KafkaTopicFilter
 import com.creditkarma.blink.impl.spark.tracker.kafka.ZooKeeperStateTracker
-import com.creditkarma.blink.instrumentation.LogInfoInstrumentor
+import com.creditkarma.blink.instrumentation.LogInfoToFileInstrumentor
 import kafka.consumer.{Blacklist, Whitelist}
 import org.apache.kafka.common.serialization.StringDeserializer
 
@@ -23,7 +23,10 @@ trait KafkaImportPortalFactory[K, V, P] extends PortalFactory {
   val FLUSH_SIZE_PARAM = "flush.size"
   val KAFKA_WHITELIST_PARAM = "kafka.whitelist"
   val KAFKA_BLACKLIST_PARAM = "kafka.blacklist"
-
+  val LOG4J_MAX_FILE_SIZE = "log4j.maxFileSize"
+  val LOG4J_MAX_BK_INDEX = "log4j.MaxBackupIndex"
+  val LOG4J_FILE_NAME = "log4j.fName"
+  val LOG4J_FILE_PATTERN = "log4j.pattern"
 
   override def build(): PortalController = {
     val writerCreator = Class.forName(getOrFail(KAFKA_WRITER_CREATOR_PARAM)).newInstance().asInstanceOf[KafkaExportWorkerCreator[K, V, P]]
@@ -48,7 +51,7 @@ trait KafkaImportPortalFactory[K, V, P] extends PortalFactory {
       checkpointService = new ZooKeeperStateTracker(getOrFail(ZOOKEEPER_HOST_PARAM)),
       flushInterval = getLongOrFail(FLUSH_INTERVAL_PARAM),
       flushSize = getLongOrFail(FLUSH_SIZE_PARAM),
-      Seq(LogInfoInstrumentor()), // instrumentation should also be controllable by parameters, for now just always add the logging one
+      Seq(LogInfoToFileInstrumentor(getOrFail(LOG4J_MAX_FILE_SIZE),getOrFail(LOG4J_MAX_BK_INDEX),getOrFail(LOG4J_FILE_NAME),getOrFail(LOG4J_FILE_PATTERN))), // instrumentation should also be controllable by parameters, for now just always add the logging one
       new KafkaTopicFilter(get(KAFKA_WHITELIST_PARAM).map(new Whitelist(_)), get(KAFKA_BLACKLIST_PARAM).map(new Blacklist(_)))
     )
   }

@@ -80,6 +80,10 @@ s"""
    |blink.portal.factory.properties.zookeeper.host=localhost:5678
    |blink.portal.factory.properties.flush.interval=1000
    |blink.portal.factory.properties.flush.size=1
+   |blink.portal.factory.properties.log4j.maxFileSize=100KB
+   |blink.portal.factory.properties.log4j.MaxBackupIndex=1
+   |blink.portal.factory.properties.log4j.fName=sudogenki
+   |blink.portal.factory.properties.log4j.pattern=%d{yy/MM/dd HH:mm:ss} %p %c{1}: %m%n
    |
  |#===================================================================================================
    |# Client configurations -- GCS Writer

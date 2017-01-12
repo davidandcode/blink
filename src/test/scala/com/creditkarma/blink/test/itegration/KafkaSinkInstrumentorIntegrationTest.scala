@@ -2,7 +2,7 @@ package com.creditkarma.blink.test.itegration
 
 import com.creditkarma.blink.base.{OperationMode, StateTracker, TimeMode}
 import com.creditkarma.blink.impl.spark.tracker.kafka.KafkaCheckpoint
-import com.creditkarma.blink.instrumentation.{KafkaSinkInstrumentor, LogInfoInstrumentor}
+import com.creditkarma.blink.instrumentation.{KafkaSinkInstrumentor, LogInfoInstrumentor, LogInfoToFileInstrumentor}
 import net.minidev.json.{JSONObject, JSONValue}
 
 /**
@@ -29,9 +29,9 @@ class KafkaSinkInstrumentorIntegrationTest extends KafkaIntegrationTestBase {
 
 
       val portalId = "test-portal"
-      val portal = getOrCreatePortal(portalId, flushSize = 100)
+      val portal = getOrCreatePortal(portalId, flushSize = 10)
 
-      portal.registerInstrumentor(LogInfoInstrumentor()) // this is just to observe trace
+      portal.registerInstrumentor(LogInfoToFileInstrumentor("2MB", "1", "honekawasuneo", "%d{yy/MM/dd HH:mm:ss} %p %c{1}: %m%n")) // this is just to observe trace
       val mInstrumentor = new KafkaSinkInstrumentor(60000, "localhost", s"${brokerPort}", "metrics", 100000)
       portal.registerInstrumentor(mInstrumentor)
       portal.openPortal(OperationMode.ImporterDepletion, TimeMode.Origin)

@@ -6,11 +6,8 @@ import com.creditkarma.blink.impl.spark.exporter.kafka.ExportWorker
 import org.apache.log4j.{Level, LogManager}
 import org.scalatest.{BeforeAndAfterAll, WordSpec}
 
-/**
-  * This integration test starts from a single configuration file to test end-to-end
-  * In most other cases, integration test should start from any convenient entry points for most flexibility
-  */
-class PropertyConfigIntegrationTest extends WordSpec with BeforeAndAfterAll with LocalKafka[String, String]{
+
+class FileLogInstrumentorIntegrationTest extends WordSpec with BeforeAndAfterAll with LocalKafka[String, String]{
 
   // port numbers must match the configuration file
   override val configuredPorts: Option[(Int, Int)] = Some((5678, 1234))
@@ -20,9 +17,6 @@ class PropertyConfigIntegrationTest extends WordSpec with BeforeAndAfterAll with
       prepareKafkaData()
       val portalId = MainApp.castPortal("src/test/resources/kafka.log.test.properties")
       assert(SimpleCollectibleWriter.globalCollector.get(portalId).get.size == 10)
-
-      val portalId2 = MainApp.castPortal("src/test/resources/kafka.log.test2.properties")
-      assert(SimpleCollectibleWriter.globalCollector.get(portalId2).get.size == 5)
 
       shutDownKafka()
     }
@@ -51,8 +45,3 @@ class PropertyConfigIntegrationTest extends WordSpec with BeforeAndAfterAll with
   }
 }
 
-class TestWriterCreator extends KafkaExportWorkerCreator[String, String, String] {
-  override def writer: ExportWorker[String, String, String] = {
-    SimpleCollectibleWriter.writer
-  }
-}
