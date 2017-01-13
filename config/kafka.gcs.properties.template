@@ -6,8 +6,11 @@ blink.portal.factory.class=com.creditkarma.blink.factory.KafkaImportPortalFactor
 blink.portal.factory.properties.id=change me
 blink.portal.factory.properties.kafka.bootstrap.servers=chang me
 blink.portal.factory.properties.zookeeper.host=change me
+# this is scheduling interval in ms when the blink portal catches up with the tail of the stream
 blink.portal.factory.properties.flush.interval=60000
-blink.portal.factory.properties.flush.size=100000000
+# this is number of records per partition per batch, assuming 1KB record size this will produce 100MB files pre-compression
+# it's possible to have more granular control on a per topic basis if needed
+blink.portal.factory.properties.flush.size=100000
 blink.portal.factory.properties.whitelist=change me
 blink.portal.factory.properties.blacklist=change me
 blink.portal.factory.properties.writer.creator.class=com.creditkarma.blink.impl.spark.exporter.kafka.gcs.GCSWriterCreator
