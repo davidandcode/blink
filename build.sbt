@@ -1,3 +1,5 @@
+import com.typesafe.sbt.packager.universal.UniversalPlugin
+
 lazy val commonSettings = Seq(
   name := "blink",
   version := "0.0.0",
@@ -23,3 +25,7 @@ lazy val blink = (project in file(".")).
       ))
     // more settings here ...
   )
+
+enablePlugins(UniversalPlugin)
+mappings in Universal in packageBin += file("config/kafka.gcs.properties") -> "conf/kafka.gcs.properties"
+mappings in Universal in packageBin <+= (assembly in Compile) map { assemblyJar => assemblyJar -> s"bin/${assemblyJar.getName}" }
