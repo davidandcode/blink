@@ -17,7 +17,7 @@ class LocalLogWriter(localFileName:String, maxFileSize:String, MaxBackupIndex:St
 
     var lines =0
     var bytes=0
-    val logger = LocalLogWriter.getOrCreateMlogger(localFileName,maxFileSize,MaxBackupIndex)
+    val logger = LocalLogWriter.getOrCreateMlogger(localFileName, maxFileSize, MaxBackupIndex)
 
     Try({
       for (line <- data) {

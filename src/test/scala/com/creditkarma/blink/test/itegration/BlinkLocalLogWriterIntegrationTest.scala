@@ -27,18 +27,13 @@ class BlinkLocalLogWriterIntegrationTest extends FlatSpec with LocalKafka[String
     sendMessage("LocalTest", "instrumentation", "This is the 2nd message.")
     sendMessage("LocalTest", "instrumentation", "This is the 3rd message.")
 
-
-    //assert(Source.fromFile("src/test/resources/generated_local_output/test_file_integration").getLines().length == 6)
-
-    assert(Source.fromFile("src/test/resources/generated_local_output/test_file_integration").getLines().forall(line => line.startsWith("This is")))
-
-
     val dir = "src/test/resources/generated_config"
     val fileName = s"$dir/kafka_local_log.properties"
     new File(dir).mkdirs()
     new PrintWriter(fileName) { write(configWithLocalPrefix); close }
 
     val portalId = MainApp.castPortal(fileName)
+    assert(Source.fromFile("src/test/resources/generated_local_output/test_log_file_integration").getLines().forall(line => line.startsWith("This is")))
 
     shutDownKafka()
   }
@@ -62,9 +57,9 @@ class BlinkLocalLogWriterIntegrationTest extends FlatSpec with LocalKafka[String
  |#===================================================================================================
        |# Client configurations -- Local Log Writer
        |#===================================================================================================
-       |blink.portal.factory.properties.writer.creator.properties.localFileName=src/test/resources/generated_local_outputsrc/test/resources/generated_local_output/test_log_file_integration
-       |blink.portal.factory.properties.writer.creator.properties.maxFileSize=10MB
-       |blink.portal.factory.properties.writer.creator.properties.MaxBackupIndex=2
+       |blink.portal.factory.properties.writer.creator.properties.localFileName=src/test/resources/generated_local_output/test_log_file_integration
+       |blink.portal.factory.properties.writer.creator.properties.maxFileSize=50KB
+       |blink.portal.factory.properties.writer.creator.properties.MaxBackupIndex=1
  |#===================================================================================================
        |# Blink engine configurations
        |#===================================================================================================
