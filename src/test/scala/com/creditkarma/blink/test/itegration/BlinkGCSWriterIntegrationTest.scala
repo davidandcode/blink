@@ -96,7 +96,6 @@ s"""
    |blink.portal.factory.properties.writer.creator.properties.cacheControl=
    |blink.portal.factory.properties.writer.creator.properties.outputFileExtension=json
    |blink.portal.factory.properties.writer.creator.properties.pathPrefix=${gcsPrefix}
-   |blink.portal.factory.properties.writer.creator.properties.compression=false
    |
  |#===================================================================================================
    |# Blink engine configurations

@@ -46,7 +46,7 @@ class GCSWriter(
       cacheControl: String,
       outputFileExtension: String,
       pathPrefix: String,
-      compression:String) extends ExportWorker[String, String, String] {
+      compression:Boolean) extends ExportWorker[String, String, String] {
 
   override def useSubPartition: Boolean = true
 
@@ -126,9 +126,9 @@ class GCSWriter(
               .setMetadata(metaDataKeyValue.toMap.asJava)
               .setCacheControl(cacheControl)
               .setName(makeOutputPath(partition)),
-            compression.toLowerCase match {
-              case "false" => new InputStreamContent (outputAppString, mStream)
-              case "true" => new InputStreamContent (outputAppString, new GzipCompressingInputStream (mStream) )
+            compression match {
+              case false => new InputStreamContent (outputAppString, mStream)
+              case true => new InputStreamContent (outputAppString, new GzipCompressingInputStream (mStream) )
             }
             )
       request.getMediaHttpUploader.setDirectUploadEnabled(true)
