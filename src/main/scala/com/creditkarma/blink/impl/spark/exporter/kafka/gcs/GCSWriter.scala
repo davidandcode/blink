@@ -1,15 +1,16 @@
 package com.creditkarma.blink.impl.spark.exporter.kafka.gcs
 
-import java.io.{ByteArrayInputStream, InputStream, SequenceInputStream}
 import java.text.SimpleDateFormat
 import java.util.Date
 
 import com.creditkarma.blink.impl.spark.exporter.kafka._
-import com.creditkarma.blink.utils.gcs.{GCSUtils, GzipCompressingInputStream}
+import com.creditkarma.blink.utils.StreamWrapper
+import com.creditkarma.blink.utils.gcs.GCSUtils
 import com.creditkarma.blink.utils.writer.CkAutoTsMessageParser
 import com.google.api.client.http.InputStreamContent
 import com.google.api.services.storage.model.StorageObject
 import com.google.common.base.Throwables
+import org.apache.hadoop.io.compress.GzipCodec
 
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
@@ -46,7 +47,7 @@ class GCSWriter(
       cacheControl: String,
       outputFileExtension: String,
       pathPrefix: String,
-      compression:Boolean) extends ExportWorker[String, String, String] {
+      compression: Boolean) extends ExportWorker[String, String, String] {
 
   override def useSubPartition: Boolean = true
 
@@ -108,12 +109,6 @@ class GCSWriter(
           payload + "\n" // return the JSON line
         }
       }
-    // convert the iterator of payload strings into an InputStream, lazily evaluated
-    def mStream: InputStream = new SequenceInputStream(
-      payloadItr.map {
-        payload => new ByteArrayInputStream(payload.getBytes("UTF-8"))
-      }.asJavaEnumeration
-    )
 
     def insertRequest = {
       val request =
@@ -127,8 +122,8 @@ class GCSWriter(
               .setCacheControl(cacheControl)
               .setName(makeOutputPath(partition)),
             compression match {
-              case false => new InputStreamContent (outputAppString, mStream)
-              case true => new InputStreamContent (outputAppString, new GzipCompressingInputStream (mStream) )
+              case false => new InputStreamContent (outputAppString, StreamWrapper(payloadItr))
+              case true => new InputStreamContent (outputAppString, StreamWrapper(payloadItr, Some(classOf[GzipCodec])))
             }
             )
       request.getMediaHttpUploader.setDirectUploadEnabled(true)
