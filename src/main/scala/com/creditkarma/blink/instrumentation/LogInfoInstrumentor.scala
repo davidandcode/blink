@@ -5,7 +5,7 @@ import com.creditkarma.blink.utils.LazyLog
   * Created by yongjia.wang on 11/17/16.
   */
 class LogInfoInstrumentor extends Instrumentor with LazyLog {
-  
+
   override def name: String = this.getClass.getName
 
   var cycleId: Long = 0

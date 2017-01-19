@@ -16,24 +16,28 @@ class BlinkLocalLogWriterIntegrationTest extends FlatSpec with LocalKafka[String
 
 
   override val configuredPorts: Option[(Int, Int)] = Some((5678, 1234))
-
+  val log_file_path = "src/test/resources/generated_local_output/test_log_file_integration"
+  new File(log_file_path).delete()
 
   "A writer" should "upload the data/message correctly" in {
 
 
     startKafka()
 
-    sendMessage("LocalTest", "instrumentation", "This is the 1st message.")
-    sendMessage("LocalTest", "instrumentation", "This is the 2nd message.")
-    sendMessage("LocalTest", "instrumentation", "This is the 3rd message.")
+    val messages = Seq("This is the 1st message.", "This is the 2nd message.", "This is the 3rd message.")
+    for (message <- messages) {
+      sendMessage("LocalTest", "instrumentation", message)
+    }
 
     val dir = "src/test/resources/generated_config"
     val fileName = s"$dir/kafka_local_log.properties"
     new File(dir).mkdirs()
     new PrintWriter(fileName) { write(configWithLocalPrefix); close }
 
+
+
     val portalId = MainApp.castPortal(fileName)
-    assert(Source.fromFile("src/test/resources/generated_local_output/test_log_file_integration").getLines().forall(line => line.startsWith("This is")))
+    assert(Source.fromFile(log_file_path ).getLines().toSeq == messages)
 
     shutDownKafka()
   }
@@ -57,7 +61,7 @@ class BlinkLocalLogWriterIntegrationTest extends FlatSpec with LocalKafka[String
  |#===================================================================================================
        |# Client configurations -- Local Log Writer
        |#===================================================================================================
-       |blink.portal.factory.properties.writer.creator.properties.localFileName=src/test/resources/generated_local_output/test_log_file_integration
+       |blink.portal.factory.properties.writer.creator.properties.localFileName=${log_file_path }
        |blink.portal.factory.properties.writer.creator.properties.maxFileSize=50KB
        |blink.portal.factory.properties.writer.creator.properties.MaxBackupIndex=1
  |#===================================================================================================
