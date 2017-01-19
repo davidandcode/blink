@@ -19,8 +19,12 @@ At the high level, blink has 3 layers.
  3. Then the next layer deals with specific sources and sinks, checkpoints, and their metrics.
 Development at this layer just need to implement single threaded workers, and does not need to be aware of any distributed operation.
 
-There can be 2 checkpoint mode depending on the source. For Kafka, it's possible to perform distributed checkpoint for each topic-partition independently, and such mode is implemented in the 3rd layer.
-For more general serial checkpoint like HDFS, s3, gcs, checkpoint is implemented via a portal stateTracker module at the 1st layer.
+There is another external configuration layer on top of the 3 source code layers as illustrated in the following figure.
+### Blink Architecture Design
+![Blink architecture design](images/blink_design.png)
+
+There can be 2 checkpoint mode depending on the source. For Kafka, it's possible to perform distributed checkpoint for each topic-partition independently, and such mode is implemented in the concurrency layer.
+For more general serial checkpoint like HDFS, s3, gcs, checkpoint is implemented via a portal stateTracker module at the control layer.
 
 The entry point of blink is the PortalCaster, which only takes a single text configuration file (properties or xml) as input.
 Highly customized portals can be build by extending the exposed APIs at various layers, and can be configured by dynamically loading the custom implementing classes.
@@ -30,3 +34,4 @@ To run a simple demo from command line (need to install sbt first):
 `sbt test`
 
 It should print traces to the console.
+

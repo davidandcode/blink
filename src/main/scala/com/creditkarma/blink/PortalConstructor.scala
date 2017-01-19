@@ -6,10 +6,9 @@ import com.creditkarma.blink.impl.spark.exporter.kafka.{ExportWorker, ExporterWi
 import com.creditkarma.blink.impl.spark.importer.kafka.{KafkaSparkImporter, KafkaTopicFilter}
 import com.creditkarma.blink.impl.spark.tracker.kafka.KafkaCheckpoint
 import com.creditkarma.blink.impl.spark.transformer.IdentityTransformer
-import kafka.consumer.{Blacklist, TopicFilter, Whitelist}
+import kafka.consumer.Whitelist
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.spark.streaming.kafka010.OffsetRange
-import org.glassfish.hk2.api.messaging.Topic
 
 /**
   * PortalConstructor contains helper functions to construct portals of specific class.
@@ -44,7 +43,7 @@ object PortalConstructor {
    topicFilter: KafkaTopicFilter = new KafkaTopicFilter(Some(Whitelist(".*")), None)
   ): Portal[SparkRDD[ConsumerRecord[K, V]], SparkRDD[ConsumerRecord[K, V]], KafkaCheckpoint, Seq[OffsetRange]] = {
     val excludeInternalTopics = true // always exclude internal topics
-    val reader = new KafkaSparkImporter[K, V](kafkaParams, topicFilter, flushSize, flushInterval)
+    val reader = new KafkaSparkImporter[K, V](kafkaParams, topicFilter, flushSize = flushSize, flushInterval = flushInterval)
     val portal =
     noTransform(
       id = name, tickTime = DefaultTickTime,

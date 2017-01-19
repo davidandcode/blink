@@ -1,6 +1,5 @@
 package com.creditkarma.blink.test
 
-import org.apache.log4j.{Level, LogManager}
 import org.apache.spark.{SparkConf, SparkContext}
 
 /**
@@ -14,9 +13,6 @@ trait LocalSpark {
       // set local host explicitly, the call through java.net.InetAddress.getLocalHost on laptop with VPN can be inconsistent
       // Also if it returns IPV6, Spark won't work with it
     )
-
-    LogManager.getLogger("org.apache").setLevel(Level.WARN)
-    LogManager.getLogger("kafka").setLevel(Level.WARN)
   }
   def sc: SparkContext = SparkContext.getOrCreate()
 }
