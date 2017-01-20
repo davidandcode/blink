@@ -5,16 +5,16 @@ import java.net.Socket
 
 import com.creditkarma.blink.impl.spark.exporter.kafka.{ExportWorker, KafkaMessageWithId, SubPartition, WorkerMeta}
 import com.google.common.base.Throwables
-import com.splunk.{SSLSecurityProtocol, Service, _}
 
 import scala.util.{Failure, Success, Try}
 
 /**
   * Created by shengwei.wang on 12/10/16.
   */
-class KafkaPartitionSplunkTCPWriter(address:Array[(String,String)]) extends ExportWorker[String, String, String]{
+class KafkaPartitionSplunkTCPWriter(address: Array[(String, String)]) extends ExportWorker[String, String, String] {
 
   override def useSubPartition: Boolean = false
+
   override def getSubPartition(payload: String): String = ""
 
   override def write(partition: SubPartition[String], data: Iterator[KafkaMessageWithId[String, String]]): WorkerMeta = {
@@ -23,13 +23,13 @@ class KafkaPartitionSplunkTCPWriter(address:Array[(String,String)]) extends Expo
     var host = address(i)._1
     var port = address(i)._2
 
-    var clientSocket:Socket = null
+    var clientSocket: Socket = null
 
-    while(clientSocket == null){
+    while (clientSocket == null) {
       try {
         clientSocket = new Socket(host, port.toInt)
-      } catch{
-        case e:Exception => {
+      } catch {
+        case e: Exception => {
           i += 1
           host = address(i)._1
           port = address(i)._2
@@ -40,11 +40,11 @@ class KafkaPartitionSplunkTCPWriter(address:Array[(String,String)]) extends Expo
     var lines = 0
     var bytes = 0
 
-Try({
+    Try({
       val ostream: OutputStream = clientSocket.getOutputStream
       val out: Writer = new OutputStreamWriter(ostream, "UTF8")
       // Send events to the socket then close it
-      for(message <- data){
+      for (message <- data) {
         out.write(message.value + "\r\n")
         lines += 1
         bytes += message.value.getBytes().length
@@ -55,7 +55,7 @@ Try({
         clientSocket.close()
         new WorkerMeta(lines, bytes, true)
       }
-      case Failure(f) =>  {
+      case Failure(f) => {
         clientSocket.close()
         new WorkerMeta(lines, bytes, false, Throwables.getStackTraceAsString(f))
       }

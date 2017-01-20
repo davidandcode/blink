@@ -5,7 +5,7 @@ import com.creditkarma.blink.factory.KafkaExportWorkerCreator
 /**
   * Created by shengwei.wang on 12/20/16.
   */
-class SplunkWriterCreator extends KafkaExportWorkerCreator[String, String, String]{
+class SplunkWriterCreator extends KafkaExportWorkerCreator[String, String, String] {
 
   override def writer: KafkaPartitionSplunkWriter = {
 
