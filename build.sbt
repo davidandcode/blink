@@ -1,3 +1,5 @@
+import com.typesafe.sbt.packager.universal.UniversalPlugin
+
 lazy val commonSettings = Seq(
   name := "blink",
   version := "0.0.0",
@@ -24,3 +26,12 @@ lazy val blink = (project in file(".")).
       ))
     // more settings here ...
   )
+
+enablePlugins(UniversalPlugin)
+def fileExistsOrFail(path: String): File = {
+  val f = file(path)
+  if(f.exists()) f else throw new Exception(s"File $path does not exist")
+}
+mappings in Universal in packageBin += fileExistsOrFail("config/kafka.gcs.properties") -> "conf/kafka.gcs.properties"
+mappings in Universal in packageBin += fileExistsOrFail("config/log4j.properties") -> "conf/log4j.properties"
+mappings in Universal in packageBin <+= (assembly in Compile) map { assemblyJar => assemblyJar -> s"bin/${assemblyJar.getName}" }

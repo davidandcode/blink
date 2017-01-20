@@ -1,27 +1,10 @@
 package com.creditkarma.blink.instrumentation
 import com.creditkarma.blink.base._
 import com.creditkarma.blink.utils.LazyLog
-import org.apache.log4j.{ConsoleAppender, Level, LogManager, PatternLayout}
-
-import scala.collection.JavaConverters._
 /**
   * Created by yongjia.wang on 11/17/16.
   */
 class LogInfoInstrumentor extends Instrumentor with LazyLog {
-
-  def printLogToConsole(): Unit = {
-    val appenders = LogManager.getRootLogger.getAllAppenders.asScala
-    if(!appenders.exists(_.isInstanceOf[ConsoleAppender])){ // if the appender is already at the root, which Spark does by default, don't add it
-      val appender = new ConsoleAppender(new PatternLayout("%d{yy/MM/dd HH:mm:ss} %p %c{1}: %m%n"))
-      logger.addAppender(appender)
-    }
-  }
-  def setLevel(level: Level): Unit = {
-    logger.setLevel(level)
-  }
-
-  setLevel(Level.INFO)
-  printLogToConsole()
 
   override def name: String = this.getClass.getName
 
