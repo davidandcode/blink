@@ -1,4 +1,4 @@
-package com.creditkarma.blink.test.itegration
+package com.creditkarma.blink.test.integration
 
 import java.io.{File, PrintWriter}
 

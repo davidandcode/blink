@@ -1,4 +1,4 @@
-package com.creditkarma.blink.test.itegration
+package com.creditkarma.blink.test.integration
 
 import com.creditkarma.blink.MainApp
 import com.creditkarma.blink.factory.KafkaExportWorkerCreator

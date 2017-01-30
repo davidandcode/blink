@@ -1,4 +1,4 @@
-package com.creditkarma.blink.test.itegration
+package com.creditkarma.blink.test.integration
 
 import com.creditkarma.blink.impl.spark.exporter.kafka.{ExportWorker, KafkaMessageWithId, SubPartition, WorkerMeta}
 

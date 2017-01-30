@@ -1,4 +1,4 @@
-package com.creditkarma.blink.test.itegration
+package com.creditkarma.blink.test.integration
 
 import com.creditkarma.blink.PortalConstructor
 import com.creditkarma.blink.base.{Portal, StateTracker}

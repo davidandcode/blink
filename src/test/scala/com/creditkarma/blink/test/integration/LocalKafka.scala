@@ -1,4 +1,4 @@
-package com.creditkarma.blink.test.itegration
+package com.creditkarma.blink.test.integration
 
 import com.creditkarma.blink.impl.spark.exporter.kafka.{KafkaMessageId, KafkaMessageWithId}
 import info.batey.kafka.unit.KafkaUnit
