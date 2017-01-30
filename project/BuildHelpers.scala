@@ -31,6 +31,8 @@ object Dependencies {
 
 object TestConfig {
   def isJenkinsBuildTest(test: String): Boolean = {
-    test.endsWith("BlinkBasicIntegrationTest") || test.endsWith("KafkaTopicFilterTest")
+    test.endsWith("BlinkBasicIntegrationTest") ||
+      test.endsWith("StreamWrapperTest") || test.endsWith("KafkaTopicFilterTest")
+
   }
 }

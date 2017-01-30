@@ -15,19 +15,20 @@ import scala.collection.mutable
 class GCSWriterTest extends FlatSpec with LocalSpark with GCSTest{
 
   val mGCSWriter: GCSWriter = new GCSWriter(
-    "ts",
-    "yyyy/MM/dd",
-    true,
-    "",
-    "testingcredentials/DataScience-f7d364638ad4.json",
-    10000,
-    10000,
-    "dataeng_test",
-    "application/json",
-    "priority,high;period,60",
-    "",
-    "json",
-    gcsPrefix
+    tsName = "ts",
+    partitionFormat = "yyyy/MM/dd",
+    ifWithMicro = true,
+    enforcedFields = "",
+    credentialsPath = "testingcredentials/DataScience-f7d364638ad4.json",
+    connectTimeoutMs = 10000,
+    readTimeoutMs = 10000,
+    bucketName = "dataeng_test",
+    outputAppString = "application/json",
+    metaData = "priority,high;period,60",
+    cacheControl = "",
+    outputFileExtension = "json",
+    pathPrefix = gcsPrefix,
+    compression = false
   )
 
   sc.hadoopConfiguration.set("fs.gs.project.id", "295779567055")
