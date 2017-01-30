@@ -5,7 +5,7 @@ import com.creditkarma.blink.impl.spark.{ClientModuleType, SparkWorkerModule}
 /**
   * Created by yongjia.wang on 12/7/16.
   */
-trait ExportWorker[K, V, P] extends SparkWorkerModule {
+trait ExportWorkerWithSubPartition[K, V, P] extends SparkWorkerModule {
   def useSubPartition: Boolean
 
   /**
@@ -23,9 +23,10 @@ trait ExportWorker[K, V, P] extends SparkWorkerModule {
     * and assumed to be auto-recoverable.
     * If the writer implementation is not able to make progress due to some deterministic edge cases, the in/out metrics and
     * error messages are propagated back to the main thread and sent to metrics services, so the problem can be exposed and fixed.
-    * For a [[ExportWorker]], it's write status is atomic (all or nothing):
+    * For a [[ExportWorkerWithSubPartition]], it's write status is atomic (all or nothing):
     * either the entire partition is successfully written or none.
     * Even if the writer client supports partial writes, it's still treated atomically by the framework.
+    *
     * @param partition sub-partition within the kafka topicPartition, such as time based partition
     * @param data stream of data to be written into a single atomic partition
     * @return meta data of writer client, the framework only requires number of records, total bytes and whether the write is 100% complete
@@ -36,3 +37,8 @@ trait ExportWorker[K, V, P] extends SparkWorkerModule {
 }
 
 case class WorkerMeta(records: Long, bytes: Long, complete: Boolean, message: String = "")
+
+trait ExportWorker[K, V] extends ExportWorkerWithSubPartition[K, V, AnyRef] {
+  override def useSubPartition: Boolean = false
+  def getSubPartition(payload: V): AnyRef = None
+}

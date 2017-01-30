@@ -47,7 +47,7 @@ class GCSWriter(
       cacheControl: String,
       outputFileExtension: String,
       pathPrefix: String,
-      compression: Boolean) extends ExportWorker[String, String, String] {
+      compression: Boolean) extends ExportWorkerWithSubPartition[String, String, String] {
 
   override def useSubPartition: Boolean = true
 

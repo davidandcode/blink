@@ -2,7 +2,7 @@ package com.creditkarma.blink
 
 import com.creditkarma.blink.base._
 import com.creditkarma.blink.impl.spark.buffer.SparkRDD
-import com.creditkarma.blink.impl.spark.exporter.kafka.{ExportWorker, ExporterWithWorker}
+import com.creditkarma.blink.impl.spark.exporter.kafka.{ExportWorkerWithSubPartition, ExporterWithWorker}
 import com.creditkarma.blink.impl.spark.importer.kafka.{KafkaSparkImporter, KafkaTopicFilter}
 import com.creditkarma.blink.impl.spark.tracker.kafka.KafkaCheckpoint
 import com.creditkarma.blink.impl.spark.transformer.IdentityTransformer
@@ -35,7 +35,7 @@ object PortalConstructor {
   def createKafkaSparkPortalWithSingleThreadedWriter[K, V, P]
   (name: String,
    kafkaParams: Map[String, Object],
-   singleThreadPartitionWriter: ExportWorker[K, V, P],
+   singleThreadPartitionWriter: ExportWorkerWithSubPartition[K, V, P],
    checkpointService: StateTracker[KafkaCheckpoint],
    flushInterval: Long,
    flushSize: Long,

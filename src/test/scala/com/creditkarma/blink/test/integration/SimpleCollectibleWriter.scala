@@ -1,6 +1,6 @@
 package com.creditkarma.blink.test.integration
 
-import com.creditkarma.blink.impl.spark.exporter.kafka.{ExportWorker, KafkaMessageWithId, SubPartition, WorkerMeta}
+import com.creditkarma.blink.impl.spark.exporter.kafka.{ExportWorkerWithSubPartition, KafkaMessageWithId, SubPartition, WorkerMeta}
 
 import scala.collection.mutable.ListBuffer
 
@@ -19,7 +19,7 @@ object SimpleCollectibleWriter extends CollectibleTestWriter[String, String, Str
     *
     * @return
     */
-  override def writer: ExportWorker[String, String, String] = new ExportWorker[String, String, String] {
+  override def writer: ExportWorkerWithSubPartition[String, String, String] = new ExportWorkerWithSubPartition[String, String, String] {
 
     override def useSubPartition: Boolean = false
 

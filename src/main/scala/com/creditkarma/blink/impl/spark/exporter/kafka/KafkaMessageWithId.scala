@@ -4,7 +4,7 @@ import org.apache.kafka.common.TopicPartition
 
 /**
   * This combination of Ids guarantees uniqueness within a Kafka cluster instance.
-  * For safety, a Kafka cluster instance Id can be augmented later by the [[ExportWorker]]
+  * For safety, a Kafka cluster instance Id can be augmented later by the [[ExportWorkerWithSubPartition]]
   * Kafka cluster Id is not added here because it belongs to the outside context, not here.
   *
   * @param topicPartition

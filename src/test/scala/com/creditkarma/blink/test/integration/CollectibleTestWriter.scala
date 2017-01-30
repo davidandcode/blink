@@ -1,6 +1,6 @@
 package com.creditkarma.blink.test.integration
 
-import com.creditkarma.blink.impl.spark.exporter.kafka.{ExportWorker, KafkaMessageWithId}
+import com.creditkarma.blink.impl.spark.exporter.kafka.{ExportWorkerWithSubPartition, KafkaMessageWithId}
 
 /**
   * This is for testing purpose, to collect what the single threaded writer have
@@ -11,7 +11,7 @@ trait CollectibleTestWriter[Key, Value, Partition] {
     * This is the writer being tested
     * @return
     */
-  def writer: ExportWorker[Key, Value, Partition]
+  def writer: ExportWorkerWithSubPartition[Key, Value, Partition]
 
   /**
     * This must be implemented based on knowledge of writer to collect information back

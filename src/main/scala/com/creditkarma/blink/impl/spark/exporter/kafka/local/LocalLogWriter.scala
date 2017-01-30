@@ -1,6 +1,6 @@
 package com.creditkarma.blink.impl.spark.exporter.kafka.local
 
-import com.creditkarma.blink.impl.spark.exporter.kafka.{ExportWorker, KafkaMessageWithId, SubPartition, WorkerMeta}
+import com.creditkarma.blink.impl.spark.exporter.kafka.{ExportWorkerWithSubPartition, KafkaMessageWithId, SubPartition, WorkerMeta}
 import com.google.common.base.Throwables
 import org.apache.log4j._
 
@@ -9,7 +9,7 @@ import scala.util.{Failure, Success, Try}
 /**
   * Created by shengwei.wang on 12/21/16.
   */
-class LocalLogWriter(localFileName:String, maxFileSize:String, MaxBackupIndex:String) extends ExportWorker[String, String, String] {
+class LocalLogWriter(localFileName:String, maxFileSize:String, MaxBackupIndex:String) extends ExportWorkerWithSubPartition[String, String, String] {
   override def useSubPartition: Boolean = false
   override def getSubPartition(payload: String): String = ""
 

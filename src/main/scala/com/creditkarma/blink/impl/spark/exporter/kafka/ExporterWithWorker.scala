@@ -20,7 +20,7 @@ import scala.util.{Failure, Success, Try}
   * @tparam P
   */
 class ExporterWithWorker[K, V, P]
-(exportWorker: ExportWorker[K, V, P])
+(exportWorker: ExportWorkerWithSubPartition[K, V, P])
   extends Exporter[SparkRDD[ConsumerRecord[K, V]], KafkaCheckpoint, Seq[OffsetRange], KafkaExportMeta] {
 
   override def export(data: SparkRDD[ConsumerRecord[K, V]], sharedState: ExporterAccessor[KafkaCheckpoint, Seq[OffsetRange]]): KafkaExportMeta = {
@@ -73,7 +73,7 @@ class ExporterWithWorker[K, V, P]
   }
   private def getSubPartitionRDD(
                  topicPartitionStreamRDD: RDD[(OffsetRange, Iterator[KafkaMessageWithId[K, V]])],
-                 exportWorker: ExportWorker[K, V, P]): RDD[(SubPartition[P], Iterator[KafkaMessageWithId[K, V]])] = {
+                 exportWorker: ExportWorkerWithSubPartition[K, V, P]): RDD[(SubPartition[P], Iterator[KafkaMessageWithId[K, V]])] = {
     if (exportWorker.useSubPartition) {
       // when using subpartition, must perform a groupByKey on each records keyed by the (topicPartition, subPartition) combination
       topicPartitionStreamRDD.flatMap {

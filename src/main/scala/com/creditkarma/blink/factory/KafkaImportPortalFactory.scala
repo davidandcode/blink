@@ -2,7 +2,7 @@ package com.creditkarma.blink.factory
 
 import com.creditkarma.blink.PortalConstructor
 import com.creditkarma.blink.base.PortalController
-import com.creditkarma.blink.impl.spark.exporter.kafka.ExportWorker
+import com.creditkarma.blink.impl.spark.exporter.kafka.ExportWorkerWithSubPartition
 import com.creditkarma.blink.impl.spark.importer.kafka.KafkaTopicFilter
 import com.creditkarma.blink.impl.spark.tracker.kafka.ZooKeeperStateTracker
 import com.creditkarma.blink.instrumentation.LogInfoInstrumentor
@@ -55,7 +55,7 @@ trait KafkaImportPortalFactory[K, V, P] extends PortalFactory {
 }
 
 trait KafkaExportWorkerCreator[K, V, P] extends SettableProperties {
-  def writer: ExportWorker[K, V, P]
+  def writer: ExportWorkerWithSubPartition[K, V, P]
 }
 
 class KafkaImportPortalFactoryStringType extends KafkaImportPortalFactory[String, String, String]
